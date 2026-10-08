@@ -4,4 +4,9 @@
 
 **Lab / demo:** AWXBackup / AWXRestore, pod logs, common errors
 
-**Status:** coming soon. Files for this episode land here when it is published.
+**Files:**
+
+- `backup.yml`: AWXBackup
+- `restore.yml`: AWXRestore from that backup
+
+**Status:** files ready; video coming soon.

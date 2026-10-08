@@ -4,4 +4,10 @@
 
 **Lab / demo:** Workflow template with approval node and on-failure branch
 
-**Status:** coming soon. Files for this episode land here when it is published.
+**Files:**
+
+- `health_check.yml`: fails if / is over 90% full
+- `deploy.yml`: installs `package_name`
+- `rollback.yml`: removes `package_name`
+
+**Status:** files ready; video coming soon.

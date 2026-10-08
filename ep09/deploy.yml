@@ -1,0 +1,12 @@
+---
+# package_name comes from the workflow survey.
+- name: Install the requested package
+  hosts: all
+  become: true
+  vars:
+    package_name: tree
+  tasks:
+    - name: Install {{ package_name }}
+      ansible.builtin.dnf:
+        name: "{{ package_name }}"
+        state: present

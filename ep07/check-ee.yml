@@ -1,0 +1,23 @@
+---
+# Fails on the default AWX EE (no pymysql), passes on the custom EE.
+- name: Check what the execution environment contains
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Import the Python library our playbooks need
+      ansible.builtin.command: python3 -c "import pymysql; print(pymysql.__version__)"
+      register: pymysql_check
+      changed_when: false
+
+    - name: Show the pymysql version
+      ansible.builtin.debug:
+        var: pymysql_check.stdout
+
+    - name: List the collection
+      ansible.builtin.command: ansible-galaxy collection list community.mysql
+      register: collection_check
+      changed_when: false
+
+    - name: Show it
+      ansible.builtin.debug:
+        var: collection_check.stdout_lines

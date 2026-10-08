@@ -4,4 +4,8 @@
 
 **Lab / demo:** Survey on a template, team with execute-only role
 
-**Status:** coming soon. Files for this episode land here when it is published.
+**Files:**
+
+- `restart_service.yml`: restarts an allow-listed service chosen in a survey
+
+**Status:** files ready; video coming soon.

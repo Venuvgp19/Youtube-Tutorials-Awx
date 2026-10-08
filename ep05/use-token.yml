@@ -1,0 +1,9 @@
+---
+# Needs a credential of the custom type in credential-type/ attached to the template.
+- name: Read a token injected by a custom credential type
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Show that the token arrived (length only)
+      ansible.builtin.debug:
+        msg: "APP_API_TOKEN is {{ lookup('ansible.builtin.env', 'APP_API_TOKEN') | length }} characters long"

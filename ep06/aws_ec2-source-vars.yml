@@ -1,0 +1,12 @@
+# Paste into: Inventory -> Sources -> Amazon EC2 -> Source variables
+# Change the region to yours.
+regions:
+  - us-east-1
+filters:
+  tag:env: lab
+  instance-state-name: running
+keyed_groups:
+  - key: tags.role
+    prefix: role
+hostnames:
+  - ip-address

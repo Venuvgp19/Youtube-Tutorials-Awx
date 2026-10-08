@@ -1,0 +1,11 @@
+---
+- name: Roll back the package change
+  hosts: all
+  become: true
+  vars:
+    package_name: tree
+  tasks:
+    - name: Remove {{ package_name }}
+      ansible.builtin.dnf:
+        name: "{{ package_name }}"
+        state: absent

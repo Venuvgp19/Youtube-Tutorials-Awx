@@ -1,0 +1,20 @@
+---
+# service_name comes from the job template survey.
+- name: Restart an allowed service
+  hosts: all
+  become: true
+  vars:
+    allowed_services:
+      - chronyd
+      - sshd
+      - crond
+  tasks:
+    - name: Refuse anything not on the allow-list
+      ansible.builtin.assert:
+        that: service_name in allowed_services
+        fail_msg: "{{ service_name }} is not on the allow-list"
+
+    - name: Restart it
+      ansible.builtin.service:
+        name: "{{ service_name }}"
+        state: restarted

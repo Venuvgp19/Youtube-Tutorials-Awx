@@ -1,0 +1,40 @@
+---
+# Run from WorkerNode1 (or any machine that can reach AWX):
+#   export CONTROLLER_HOST=http://<AWX VM IP>:30080
+#   read -s CONTROLLER_OAUTH_TOKEN && export CONTROLLER_OAUTH_TOKEN
+#   ansible-galaxy collection install awx.awx:24.6.1
+#   ansible-playbook ep11/awx-config.yml -e homelab_host=<target VM IP>
+- name: Configure AWX as code
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Project from GitHub
+      awx.awx.project:
+        name: Youtube-Tutorials-Awx
+        organization: Default
+        scm_type: git
+        scm_url: https://github.com/Venuvgp19/Youtube-Tutorials-Awx.git
+        scm_branch: main
+        scm_update_on_launch: true
+        wait: true
+
+    - name: Inventory
+      awx.awx.inventory:
+        name: Homelab
+        organization: Default
+
+    - name: Host
+      awx.awx.host:
+        name: "{{ homelab_host }}"
+        inventory: Homelab
+
+    - name: Job template
+      awx.awx.job_template:
+        name: Ping homelab (as code)
+        description: Created by ep11/awx-config.yml
+        project: Youtube-Tutorials-Awx
+        playbook: ep04/ping.yml
+        inventory: Homelab
+        credentials:
+          - homelab-ssh

@@ -1,0 +1,7 @@
+fields:
+  - id: api_token
+    type: string
+    label: API token
+    secret: true
+required:
+  - api_token

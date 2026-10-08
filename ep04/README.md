@@ -4,4 +4,9 @@
 
 **Lab / demo:** GitHub repo -> project -> inventory -> template -> run
 
-**Status:** coming soon. Files for this episode land here when it is published.
+**Files:**
+
+- `ping.yml`: can AWX reach and log in to every host
+- `packages.yml`: installs tmux, vim-enhanced and chrony, starts chronyd
+
+**Status:** files ready; video coming soon.

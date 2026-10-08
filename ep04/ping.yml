@@ -1,0 +1,7 @@
+---
+- name: Can AWX reach and log in to every host?
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Ping
+      ansible.builtin.ping:

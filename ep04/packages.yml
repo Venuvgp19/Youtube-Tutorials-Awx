@@ -1,0 +1,18 @@
+---
+- name: Baseline packages for the homelab
+  hosts: all
+  become: true
+  tasks:
+    - name: Install tools
+      ansible.builtin.dnf:
+        name:
+          - tmux
+          - vim-enhanced
+          - chrony
+        state: present
+
+    - name: Keep time in sync
+      ansible.builtin.service:
+        name: chronyd
+        state: started
+        enabled: true

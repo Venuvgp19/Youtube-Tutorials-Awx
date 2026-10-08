@@ -1,0 +1,14 @@
+---
+- name: Health check before a change
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Fail if the root filesystem is over 90% full
+      ansible.builtin.assert:
+        that:
+          - (item.size_available / item.size_total) > 0.10
+        fail_msg: "{{ item.mount }} is over 90% full"
+        quiet: true
+      loop: "{{ ansible_facts.mounts | selectattr('mount', 'equalto', '/') | list }}"
+      loop_control:
+        label: "{{ item.mount }}"
