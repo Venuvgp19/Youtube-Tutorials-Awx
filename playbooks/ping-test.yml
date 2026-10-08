@@ -1,0 +1,13 @@
+---
+- name: Verify AWX Connectivity and Execution Environment
+  hosts: all
+  gather_facts: yes
+  tasks:
+    - name: Ping target hosts
+      ansible.builtin.ping:
+
+    - name: Display target host facts
+      ansible.builtin.debug:
+        msg: >
+          Host '{{ inventory_hostname }}' is running {{ ansible_distribution | default('Unknown OS') }}
+          {{ ansible_distribution_version | default('') }} (Arch: {{ ansible_architecture | default('Unknown') }}).
