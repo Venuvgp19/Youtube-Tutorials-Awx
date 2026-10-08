@@ -12,12 +12,18 @@ Welcome to the official companion repository for our **Ansible AWX YouTube Tutor
 
 | Episode | Title | Description | Code / Notes | Video Link |
 | :---: | :--- | :--- | :---: | :---: |
-| **01** | **Introduction to Ansible AWX** | What is AWX, architecture overview, and lab requirements | [Notes](01-introduction-and-setup/README.md) | *Coming Soon* |
-| **02** | **Deploying AWX with AWX Operator** | Step-by-step installation on Kubernetes / K3s / Minikube | [Scripts](scripts/) | *Coming Soon* |
-| **03** | **Inventories & Credentials Setup** | Managing machine credentials, SSH keys, and dynamic inventories | [Inventories](inventories/) | *Coming Soon* |
-| **04** | **Creating Job Templates & Projects** | Linking GitHub repos, creating job templates, and running playbooks | [Playbooks](playbooks/) | *Coming Soon* |
-| **05** | **Workflow Job Templates & Approvals** | Multi-step pipelines, approval gates, and error handlers | [Playbooks](playbooks/) | *Coming Soon* |
-| **06** | **RBAC, Teams & Organizations** | Role-based access control and self-service execution | [Templates](templates/) | *Coming Soon* |
+| **01** | **AWX in 2026: what it is and is it worth learning?** | AWX vs Ansible CLI vs AAP, and where AWX stands today | [ep01](ep01/) | *Coming Soon* |
+| **02** | **Install AWX on k3s with the AWX Operator** | k3s + Operator 2.19.1 via kustomize on CentOS Stream 10 | [ep02](ep02/) | *Coming Soon* |
+| **03** | **The 8 building blocks of AWX** | Organizations, credentials, projects, inventories, templates, workflows, schedules, EEs | [ep03](ep03/) | *Coming Soon* |
+| **04** | **Your first job: Git project to job template** | Link this repo, build an inventory and run a playbook | [ep04](ep04/) | *Coming Soon* |
+| **05** | **Credentials and Ansible Vault** | Machine, source control, vault and custom credential types | [ep05](ep05/) | *Coming Soon* |
+| **06** | **Dynamic inventory from AWS** | EC2 inventory source, groups by tag, smart inventories | [ep06](ep06/) | *Coming Soon* |
+| **07** | **Custom Execution Environments** | ansible-builder, push to a registry, use it in AWX | [ep07](ep07/) | *Coming Soon* |
+| **08** | **Surveys and RBAC: self-service automation** | Surveys, teams and execute-only roles | [ep08](ep08/) | *Coming Soon* |
+| **09** | **Workflows: approvals and failure paths** | Workflow templates, approval nodes, on-failure branches | [ep09](ep09/) | *Coming Soon* |
+| **10** | **Schedules, notifications and GitHub webhooks** | Run on a timer, notify on result, trigger on push | [ep10](ep10/) | *Coming Soon* |
+| **11** | **AWX as code + the REST API from n8n** | awx.awx collection and launching jobs from n8n | [ep11](ep11/) | *Coming Soon* |
+| **12** | **Backup, restore and troubleshooting** | AWXBackup / AWXRestore and the most common failures | [ep12](ep12/) | *Coming Soon* |
 
 ---
 
@@ -25,13 +31,13 @@ Welcome to the official companion repository for our **Ansible AWX YouTube Tutor
 
 ```plaintext
 Youtube-Tutorials-Awx/
-├── 01-introduction-and-setup/   # Episode 1 notes, architecture diagrams, and concepts
-├── playbooks/                   # Ansible playbooks used in demonstrations
+├── ep01/ … ep12/                # One folder per episode: notes, files and commands
+│   └── ep02/install.sh          # Installs AWX 24.6.1 on k3s (the series lab)
+├── playbooks/                   # Shared playbooks used across episodes
 │   └── ping-test.yml            # Basic connectivity & credential verification
-├── inventories/                 # Sample inventory files and dynamic inventory configs
+├── inventories/                 # Sample inventory files
 │   └── hosts.example.ini        # Starter static inventory template
-├── scripts/                     # Automation scripts for installing prerequisites
-│   └── setup-prereqs.sh         # Shell script for microk8s/k3s/docker setup
+├── scripts/                     # Helper scripts (setup-prereqs.sh targets Ubuntu)
 ├── templates/                   # Jinja2 configuration templates
 └── README.md                    # Series index & repository guide
 ```
@@ -40,11 +46,13 @@ Youtube-Tutorials-Awx/
 
 ## 🛠️ Prerequisites
 
-To follow along with the hands-on labs, ensure you have:
-- A Linux environment (Ubuntu 22.04/24.04 recommended) or VM (VirtualBox / Proxmox / cloud instance)
-- **Kubernetes cluster**: K3s, Minikube, MicroK8s, or a managed cluster (EKS/GKE/AKS)
-- **Ansible Core**: `>= 2.15`
-- **Git** & **kubectl** installed
+The series lab, built and tested on Oct 7, 2026:
+- A VirtualBox VM running **CentOS Stream 10**: 4 vCPU, 8 GB RAM, 60 GB disk; NIC 1 host-only, NIC 2 NAT
+- **k3s** v1.36.5 (single node), **AWX Operator** 2.19.1, **AWX** 24.6.1
+- Windows hosts: turn the Windows hypervisor off (`bcdedit /set hypervisorlaunchtype off`, then reboot), or VirtualBox falls back to Hyper-V mode and the guest can crash
+- **Git**; `kubectl` comes with k3s (`k3s kubectl`)
+
+AWX releases have been paused since 24.6.1 (Jul 2, 2024) while the project is refactored, so the series pins these versions. Start with [ep02](ep02/) to build the lab.
 
 ---
 

@@ -1,0 +1,11 @@
+resources:
+- github.com/ansible/awx-operator/config/default?ref=2.19.1
+images:
+- name: quay.io/ansible/awx-operator
+  newTag: 2.19.1
+# The gcr.io copy of kube-rbac-proxy no longer exists; without this override
+# the operator pod stays in ErrImagePull.
+- name: gcr.io/kubebuilder/kube-rbac-proxy
+  newName: quay.io/brancz/kube-rbac-proxy
+  newTag: v0.15.0
+namespace: awx
