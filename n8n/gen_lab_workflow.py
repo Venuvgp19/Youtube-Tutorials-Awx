@@ -76,7 +76,7 @@ const check = (label, arr, min) => {
 if (data) {
   data.open = fixAll(data.open); data.close = fixAll(data.close); if (data.steps) for (const k in data.steps) data.steps[k] = fixAll(data.steps[k]);
   check('open', data.open, 2); check('close', data.close, 2);
-  lab.steps.filter(s => (s.say || '').trim()).forEach(s => {
+  lab.steps.filter(s => (s.say || '').trim() && !['open', 'close'].includes(s.id)).forEach(s => {
     const arr = data.steps?.[s.id];
     check('step ' + s.id, arr, 1);
     if (Array.isArray(arr)) {
@@ -88,7 +88,7 @@ if (data) {
 const attempt = $runIndex + 1;
 if (errors.length) return [{json:{ok:false, errors:errors.slice(0,12), attempt}}];
 const segs = [{id:'open', chapter:'Intro', sentences:data.open}];
-lab.steps.filter(s => (s.say || '').trim()).forEach(s => segs.push({id:s.id, chapter:s.chapter, sentences:data.steps[s.id]}));
+lab.steps.filter(s => (s.say || '').trim() && !['open', 'close'].includes(s.id)).forEach(s => segs.push({id:s.id, chapter:s.chapter, sentences:data.steps[s.id]}));
 segs.push({id:'close', chapter:'Wrap up', sentences:data.close});
 const num = Number(form['Episode number']);
 const episode = {series:'AWX from Zero', number:num, title:form['Episode title'], subtitle:form['Subtitle (optional)'] || '', channel:'Venu Automates', handle:'@VenAutomates',

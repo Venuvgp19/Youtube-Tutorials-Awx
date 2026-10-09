@@ -143,13 +143,29 @@ class VB:
 NUM = {"0": "zero", "1": "one", "2": "two", "3": "three", "4": "four", "5": "five", "6": "six", "7": "seven", "8": "eight", "9": "nine"}
 
 
+_ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"]
+_TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"]
+
+
+def num_words(n):
+    if n < 20:
+        return [_ONES[n]]
+    if n < 100:
+        return [_TENS[n // 10]] + (_ONES[n % 10:n % 10 + 1] if n % 10 else [])
+    if n < 1000:
+        return [_ONES[n // 100], "hundred"] + (num_words(n % 100) if n % 100 else [])
+    if n < 1000000:
+        return num_words(n // 1000) + ["thousand"] + (num_words(n % 1000) if n % 1000 else [])
+    return [_ONES[int(c)] for c in str(n)]
+
+
 def norm_words(s):
-    s = s.lower().replace("-", " ").replace("’", "'")
-    s = re.sub(r"[^a-z0-9' ]", " ", s)
+    s = s.lower().replace("-", " ").replace("\u2019", "'")
+    s = re.sub(r"(?<=\d),(?=\d)", "", s)
     w = []
-    for tok in s.split():
+    for tok in re.findall(r"\d+|[a-z']+", s):
         if tok.isdigit():
-            w += [NUM[c] for c in tok]
+            w += num_words(int(tok)) if len(tok) <= 6 else [_ONES[int(c)] for c in tok]
         else:
             w.append(tok)
     return w
@@ -159,7 +175,10 @@ def score(expected, heard):
     a, b = norm_words(expected), norm_words(heard)
     if not a:
         return 1.0
-    return difflib.SequenceMatcher(None, a, b).ratio()
+    word = difflib.SequenceMatcher(None, a, b).ratio()
+    # spoken vs written forms ("S E Linux" / "SELinux", "K three S" / "k3s") differ only in spacing
+    chars = difflib.SequenceMatcher(None, "".join(a), "".join(b)).ratio()
+    return max(word, chars)
 
 
 def cmd_narrate(pr, a):
@@ -167,6 +186,7 @@ def cmd_narrate(pr, a):
     os.makedirs(vd, exist_ok=True)
     gp = pr.p("generations.json")
     gens = {g["i"]: g for g in (jl(gp) if os.path.exists(gp) else [])}
+    byhash = {g["hash"]: g for g in gens.values() if g.get("hash") and os.path.exists(os.path.join(vd, g["id"] + ".wav"))}
     vb = VB(pr.cfg["voicebox"])
     vb.health()
     seeds = pr.cfg["voicebox"].get("seeds", [42, 7, 1234, 99])
@@ -175,7 +195,11 @@ def cmd_narrate(pr, a):
     for k, (seg, i, text) in enumerate(pr.sentences):
         h = hashlib.sha1(text.encode()).hexdigest()[:10]
         old = gens.get(k)
+        if not (old and old.get("hash") == h):
+            old = byhash.get(h)   # same sentence generated before, possibly at another position
         if old and old.get("hash") == h and os.path.exists(os.path.join(vd, old["id"] + ".wav")):
+            gens[k] = {"i": k, "id": old["id"], "hash": h, "score": old.get("score", 1.0), "heard": old.get("heard", ""), "status": old.get("status", "ok")}
+            jd([gens[x] for x in sorted(gens)], gp)
             report.append({"k": k, "seg": seg, "i": i, "text": text, "heard": old.get("heard", ""), "score": old.get("score", 1.0), "status": old.get("status", "ok"), "attempts": 0, "cached": True})
             if old.get("status") == "flagged":
                 flagged.append(k)
@@ -482,7 +506,8 @@ def cmd_lab_plan(pr, a):
         out("fail", error="plan_edit/ffmpeg failed", log_tail=(r.stdout + r.stderr)[-1500:]); return 1
     edl = jl(pr.p("edit", "edl.json"))
     say = {x["id"]: x.get("say", "") for x in S["script"]["steps"]}
-    steps = [{"id": s["id"], "title": s["title"], "chapter": s["chapter"], "say": say.get(s["id"], ""), "out_start": s["out_start"], "out_end": s["out_end"]} for s in edl["steps"]]
+    subs = {x["id"]: x.get("sub", "") for x in S["script"]["steps"]}
+    steps = [{"id": s["id"], "title": s["title"], "chapter": s["chapter"], "sub": subs.get(s["id"], ""), "say": say.get(s["id"], ""), "out_start": s["out_start"], "out_end": s["out_end"]} for s in edl["steps"]]
     jd({"episode": S.get("episode", {}), "edited_duration_s": edl["output_duration_s"], "steps": steps, "editor_tasks": edl["editor_tasks"]}, pr.p("lab_steps.json"))
     if not os.path.exists(pr.p("narration.json")) or not pr.narr["segments"]:
         ep = pr.spec.get("episode", {})
@@ -625,7 +650,15 @@ def cmd_lab_build(pr, a):
     with open(pr.p("chapters.txt"), "w", encoding="utf-8") as f:
         for st, name in ch:
             f.write(f"{int(st) // 60}:{int(st) % 60:02d} {name}\n")
-    jd({"lower_thirds": [], "duration": round(got, 3), "fade_in": 0.5, "fade_out": 1.2, "shots": [], "base_video": "base_silent.mp4", "captions": caps, "chapters_ui": pills}, pr.p("timeline.json"))
+    subs = {}
+    if os.path.exists(pr.p("lab_steps.json")):
+        subs = {x["id"]: x.get("sub", "") for x in jl(pr.p("lab_steps.json")).get("steps", [])}
+    lts = []
+    for p in plan:
+        if subs.get(p["id"]):
+            st = t_title + p["e0"] + p["cum"] + 1.2
+            lts.append({"t0": round(st, 3), "t1": round(st + 6.0, 3), "title": p["chapter"], "sub": subs[p["id"]]})
+    jd({"lower_thirds": lts, "duration": round(got, 3), "fade_in": 0.5, "fade_out": 1.2, "shots": [], "base_video": "base_silent.mp4", "captions": caps, "chapters_ui": pills}, pr.p("timeline.json"))
     jd({"plan": plan, "title_s": t_title, "end_s": t_end, "holds_total_s": round(cum, 2)}, pr.p("lab_build.json"))
     if not check_length(pr, got):
         return 1
