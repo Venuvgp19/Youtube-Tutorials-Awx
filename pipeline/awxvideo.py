@@ -473,7 +473,9 @@ def cmd_lab_plan(pr, a):
         out("fail", error="session.json / recording.webm not in project folder: save the AWX Studio session into this folder"); return 1
     S = jl(sp)
     if S["recording"].get("audio_in_recording"):
-        out("fail", error="this session was recorded in Live mode (voice already in the video). Record in Silent mode for narration to be added."); return 1
+        # Live-mode session: lab-build uses only the video stream (base_silent.mp4), so the recorded voice is discarded
+        # and replaced by the Voicebox narration.
+        sys.stderr.write("note: session was recorded in Live mode; original audio will be discarded\n")
     font = os.path.join(HERE, "fonts", "Inter-Bold.otf").replace("\\", "/").replace(":", "\\:")
     r = subprocess.run([sys.executable, plan_edit_tool(), pr.d, "--out", pr.p("edit"), "--font", font, "--run"], capture_output=True, text=True)
     if r.returncode:
