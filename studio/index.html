@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AWX Studio</title>
+<style>
+:root{--bg:#0e1020;--card:#171a2e;--card2:#1e2240;--ink:#f2f4fa;--dim:#9aa0b8;--acc:#ffaa28;--red:#e62117;--grn:#5adc8c;--line:#2a2f52}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,Segoe UI,Roboto,sans-serif}
+header{display:flex;gap:12px;align-items:center;padding:12px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:18px;margin:0;color:var(--acc);letter-spacing:.5px}
+select,input[type=text],button{font:inherit;color:var(--ink);background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:7px 12px}
+button{cursor:pointer}button:hover{border-color:var(--acc)}
+button.primary{background:var(--acc);color:#1a1205;border-color:var(--acc);font-weight:700}
+button.rec{background:var(--red);border-color:var(--red);font-weight:700}
+button:disabled{opacity:.4;cursor:not-allowed}
+main{display:grid;grid-template-columns:260px 1fr 330px;gap:16px;padding:16px 20px;max-width:1500px;margin:auto}
+@media(max-width:1000px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.card h2{font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);margin:0 0 10px}
+#steps button{display:block;width:100%;text-align:left;margin-bottom:6px;border-radius:8px}
+#steps button.on{border-color:var(--acc);background:#2a2440}
+#steps button.done{color:var(--dim)}
+#steps .n{display:inline-block;width:22px;color:var(--acc);font-weight:700}
+.big{font-size:26px;line-height:1.35;font-weight:600}
+.lbl{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--acc);margin:14px 0 4px}
+pre.cmd{background:#0a0c16;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:4px 0;white-space:pre-wrap;word-break:break-all;font:13px/1.5 ui-monospace,Consolas,monospace;color:#e6e9f5;position:relative}
+pre.cmd button{position:absolute;right:6px;top:6px;padding:2px 8px;font-size:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.pill{padding:2px 10px;border-radius:99px;border:1px solid var(--line);color:var(--dim);font-size:12px}
+.pill.live{border-color:var(--red);color:#fff;background:var(--red)}
+label.chk{display:block;margin:6px 0;color:var(--ink)}
+.warn{background:#3a2a10;border:1px solid #6b4a14;border-radius:10px;padding:10px 12px;color:#ffd9a0;margin:10px 0}
+#timer{font:700 28px ui-monospace,Consolas,monospace}
+.mk{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mk button{padding:10px 8px}
+#log{max-height:200px;overflow:auto;font:12px/1.5 ui-monospace,Consolas,monospace;color:var(--dim)}
+video#prev{width:100%;border-radius:8px;background:#000;max-height:160px}
+.hide{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>AWX STUDIO</h1>
+  <select id="scriptSel"></select>
+  <button id="loadBtn">Load script JSON…</button><input id="loadFile" type="file" accept=".json" class="hide">
+  <span class="pill" id="status">idle</span>
+  <span style="flex:1"></span>
+  <span class="pill">Chrome or Edge, open via serve.bat (localhost)</span>
+</header>
+<main>
+  <section class="card"><h2>Steps</h2><div id="steps"></div></section>
+
+  <section class="card" id="center"></section>
+
+  <section>
+    <div class="card"><h2>Recording</h2>
+      <div class="row"><b>Mode</b>
+        <label><input type="radio" name="mode" value="live" checked> Live voice</label>
+        <label><input type="radio" name="mode" value="silent"> Silent (narrate later)</label></div>
+      <div class="row"><select id="micSel" style="max-width:100%"></select></div>
+      <div id="pre"></div>
+      <label class="chk"><input type="checkbox" id="skipPre"> Skip checklist</label>
+      <div class="row"><button class="rec" id="recBtn">● Record</button><button id="stopBtn" disabled>■ Stop</button></div>
+      <div class="row"><span id="timer">00:00</span><span class="pill" id="recPill">not recording</span></div>
+      <div class="warn">When Chrome asks what to share, pick ONLY the VM / terminal <b>window</b> (not this studio). Control the take from the pop-out prompter, it stays on top.</div>
+      <div class="row"><button id="popBtn">Pop out prompter</button></div>
+      <video id="prev" muted playsinline></video>
+    </div>
+    <div class="card" style="margin-top:16px"><h2>Markers (also in the pop-out)</h2>
+      <div class="mk" id="mkMain"></div>
+      <div class="row"><input type="text" id="noteMain" placeholder="note / callout text" style="flex:1"></div>
+    </div>
+    <div class="card hide" id="saveCard" style="margin-top:16px"><h2>Take finished</h2>
+      <p id="saveInfo"></p>
+      <button class="primary" id="saveBtn">Save session folder…</button>
+      <p class="pill" id="saveMsg" style="margin-top:8px"></p></div>
+    <div class="card" style="margin-top:16px"><h2>Log</h2><div id="log"></div></div>
+  </section>
+</main>
+
+<script>
+const BUILTIN = [{"schema": "awx-script/1", "episode": 2, "slug": "ep02-install-awx-on-k3s", "title": "Install AWX on k3s with the AWX Operator", "target_minutes": "15-20 raw, about 6-8 after cuts", "preflight": ["Windows hypervisor is OFF (bcdedit /set hypervisorlaunchtype off, then reboot). VirtualBox shows the blue V icon, not the green turtle", "VM snapshot restored: fresh CentOS Stream 10, booted, logged in as root, 4 vCPU / 8 GB / 60 GB, NIC 1 host-only, NIC 2 NAT", "Terminal font large (18 pt or more), dark theme, window about 1280x720 so it is readable at 1080p", "Notifications off, no personal tabs or bookmarks visible, desktop clean", "Run sheet (ep02/README.md) open on a second screen. Share ONLY the VM or terminal window, not this studio", "Mic check done (Live mode) or Silent mode chosen (narration added later with the cloned voice)"], "steps": [{"id": "open", "title": "Open", "chapter": "Intro", "show": "Terminal on the fresh VM, empty prompt. Optional: GitHub repo page ep02 folder.", "cmd": [], "say": "Today we install AWX the way the project recommends: with the AWX Operator on Kubernetes. We use k3s, a one-command Kubernetes, on a single VM. By the end you log in to your own AWX, and I show you three problems I hit so you do not lose a night to them."}, {"id": "vm", "title": "VM settings and the hypervisor", "chapter": "The VM", "show": "VirtualBox: VM Settings > System (4 CPU, 8 GB), Storage (60 GB), Network (adapter 1 host-only, adapter 2 NAT). Then PowerShell on Windows.", "cmd": ["bcdedit /enum | findstr hypervisorlaunchtype"], "say": "4 vCPU, 8 GB RAM, 60 GB disk. Adapter 1 is host-only so your PC can reach AWX, adapter 2 is NAT for internet. On Windows turn the hypervisor off first: with it on VirtualBox runs in Hyper-V mode, you see a green turtle icon, and my guest crashed.", "watch": "Show the blue V icon in the VM status bar, not the green turtle."}, {"id": "check", "title": "Check the machine", "chapter": "Check the machine", "show": "Terminal as root.", "cmd": ["free -m; nproc; df -h /; getenforce"], "say": "Minimums are 2 CPUs, 4 GB free RAM, 15 GB free disk. Read your own numbers out loud."}, {"id": "fw", "title": "Firewall and SELinux", "chapter": "Firewall and SELinux", "show": "Terminal. Run the block; if firewalld is off, say so and move on.", "cmd": ["systemctl is-active firewalld", "firewall-cmd --permanent --add-port=6443/tcp", "firewall-cmd --permanent --add-port=30080/tcp", "firewall-cmd --permanent --zone=trusted --add-source=10.42.0.0/16", "firewall-cmd --permanent --zone=trusted --add-source=10.43.0.0/16", "firewall-cmd --reload", "setenforce 0 && sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config"], "say": "6443 is the Kubernetes API, 30080 is where AWX will listen, the two 10.x ranges are the pod and service networks. Permissive SELinux is a lab shortcut; production uses the k3s SELinux policy."}, {"id": "k3s", "title": "Install k3s", "chapter": "Install k3s", "show": "Terminal. Install runs about a minute.", "cmd": ["curl -sfL https://get.k3s.io | INSTALL_K3S_SELINUX_WARN=true INSTALL_K3S_SKIP_SELINUX_RPM=true sh -s - --write-kubeconfig-mode 644", "k3s kubectl get nodes"], "say": "k3s is a full Kubernetes in one binary. One flag skips the SELinux RPM, one makes the kubeconfig readable. Wait until the node shows Ready.", "watch": "Pause on the node line showing Ready. Zoom here."}, {"id": "operator", "title": "AWX Operator", "chapter": "The AWX Operator", "show": "Terminal. Clone the repo, show kustomization.yaml, point at the kube-rbac-proxy override.", "cmd": ["dnf -y install git", "git clone https://github.com/Venuvgp19/Youtube-Tutorials-Awx.git", "cd Youtube-Tutorials-Awx/ep02", "cat kustomization.yaml", "k3s kubectl apply -k ."], "say": "An operator is a controller that installs AWX from a short YAML and keeps it healthy. Point at the kube-rbac-proxy override: the old gcr.io image is gone, and without this line the operator never starts. Trap number one.", "watch": "Use Callout: 'Trap 1: old gcr.io image removed' when the cursor is on the override."}, {"id": "awx", "title": "AWX instance", "chapter": "The AWX instance", "show": "Terminal.", "cmd": ["cat awx.yaml", "k3s kubectl apply -n awx -f awx.yaml"], "say": "A few lines describe the whole AWX: a name and a NodePort on 30080. The operator does the rest."}, {"id": "pods", "title": "Watch the pods", "chapter": "Watch the pods", "show": "Terminal. Leave the watch running. About 10 minutes, mostly image downloads.", "cmd": ["k3s kubectl -n awx get pods -w"], "say": "Name each pod as it appears: postgres is the database, web is the UI and API, migration builds the schema, task runs your jobs.", "expect_wait": true, "watch": "Press Speed when the waiting starts, Speed again when awx-task is Running. If something fails, press Retake and explain, that is good content."}, {"id": "login", "title": "Password and login", "chapter": "Log in", "show": "Terminal for the password, then the browser at http://<VM IP>:30080.", "cmd": ["k3s kubectl -n awx get secret awx-admin-password -o jsonpath='{.data.password}' | base64 -d; echo"], "say": "Log in as admin, then change the password right away: user menu, Edit. Do not show the password on screen: blur or cut that frame.", "watch": "Press Cut around the moment the password is visible, or change it first and show the old value only in the terminal for a second."}, {"id": "traps", "title": "The three traps", "chapter": "The three traps", "show": "ep02/README.md troubleshooting table on GitHub, or the terminal.", "cmd": [], "say": "One: Hyper-V mode crashes the VM, turn the Windows hypervisor off and reboot. Two: the dead gcr.io image, use the images override in kustomization.yaml. Three: images corrupted by a crash, k3s crictl rmi the image and let it pull again."}, {"id": "close", "title": "Close", "chapter": "Wrap up", "show": "VirtualBox: take a snapshot named awx-ready. Then the repo page.", "cmd": [], "say": "That is a working AWX on k3s. Take a snapshot of your VM now, we reuse this lab in every episode. Next time: the eight building blocks of AWX. All commands are in the repo, in the ep02 folder."}]}];
+const SESSION_SCHEMA = "awx-recording-session/1";
+
+// ---------- state ----------
+let script = null, idx = 0;
+const R = { on:false, t0:0, rec:null, micRec:null, screen:null, mic:null, chunks:[], micChunks:[],
+            markers:[], frames:[], stepStart:{}, stepEnd:{}, cutOpen:null, speedOpen:null, takeStart:0, takes:[], ranges:[], vid:null,
+            mode:'live', startedAt:null, size:{w:0,h:0,fps:30}, finished:null };
+const prompters = [];
+const $ = s => document.querySelector(s);
+const fmt = t => { t=Math.max(0,t|0); return String(t/60|0).padStart(2,'0')+':'+String(t%60).padStart(2,'0'); };
+const now = () => R.on ? (performance.now()-R.t0)/1000 : 0;
+function log(m){ const d=$('#log'); d.innerHTML = `<div>${fmt(now())} ${m}</div>` + d.innerHTML; }
+
+// ---------- script loading ----------
+function setScript(s){ script=s; idx=0; renderAll(); buildPre(); }
+function initScripts(){
+  const sel=$('#scriptSel'); sel.innerHTML='';
+  BUILTIN.forEach((s,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=`Ep ${s.episode}: ${s.title}`; sel.appendChild(o); });
+  sel.onchange=()=>{ if(!R.on) setScript(BUILTIN[sel.value]); };
+  $('#loadBtn').onclick=()=>$('#loadFile').click();
+  $('#loadFile').onchange=async e=>{ const f=e.target.files[0]; if(!f)return; const s=JSON.parse(await f.text());
+    if(!s.steps) return alert('Not an awx-script JSON'); BUILTIN.push(s); initScripts(); sel.value=BUILTIN.length-1; setScript(s); };
+  if(BUILTIN.length) setScript(BUILTIN[0]);
+}
+function buildPre(){
+  const d=$('#pre'); d.innerHTML='<div class="lbl" style="margin-top:4px">Pre-flight</div>';
+  (script.preflight||[]).forEach(t=>{ const l=document.createElement('label'); l.className='chk'; l.innerHTML=`<input type="checkbox" class="pf"> ${t}`; d.appendChild(l); });
+}
+
+// ---------- rendering ----------
+function stepHTML(st, i, inPip){
+  const cmds=(st.cmd||[]).map((c,k)=>`<pre class="cmd">${esc(c)}<button data-copy="${k}">copy</button></pre>`).join('');
+  return `<div class="row"><span class="pill">Step ${i+1}/${script.steps.length}</span><span class="pill">${esc(st.chapter||'')}</span>${st.expect_wait?'<span class="pill" style="border-color:#ffaa28;color:#ffaa28">long wait: use Speed</span>':''}</div>
+  <div class="${inPip?'':'big'}" style="${inPip?'font-size:20px;font-weight:700':''}">${esc(st.title)}</div>
+  <div class="lbl">Show on screen</div><div>${esc(st.show||'')}</div>
+  ${cmds?`<div class="lbl">Type</div>${cmds}`:''}
+  <div class="lbl">Say</div><div style="font-size:${inPip?'16':'20'}px;line-height:1.5">${esc(st.say||'')}</div>
+  ${st.watch?`<div class="lbl">Watch for</div><div style="color:#ffd9a0">${esc(st.watch)}</div>`:''}`;
+}
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function renderAll(){
+  if(!script) return;
+  const st=script.steps[idx];
+  $('#center').innerHTML = stepHTML(st, idx, false) + `<div class="row" style="margin-top:18px"><button id="bk">◀ Back</button><button class="primary" id="nx">Next step ▶</button></div>`;
+  $('#bk').onclick=()=>go(idx-1); $('#nx').onclick=()=>go(idx+1);
+  bindCopy($('#center'), st);
+  const sd=$('#steps'); sd.innerHTML='';
+  script.steps.forEach((s,i)=>{ const b=document.createElement('button'); b.className=(i===idx?'on ':'')+(R.stepStart[s.id]!==undefined&&i<idx?'done':''); b.innerHTML=`<span class="n">${i+1}</span>${esc(s.title)}`; b.onclick=()=>go(i); sd.appendChild(b); });
+  prompters.forEach(p=>p.update());
+}
+function bindCopy(root, st){ root.querySelectorAll('button[data-copy]').forEach(b=>b.onclick=()=>{ navigator.clipboard.writeText(st.cmd[+b.dataset.copy]); b.textContent='copied'; setTimeout(()=>b.textContent='copy',900); }); }
+
+// ---------- markers ----------
+const MARKS = [
+  ['mark','★ Mark','generic marker'],
+  ['retake','⟲ Retake','redo this step: previous take is dropped'],
+  ['cut','✂ Cut start/end','remove this stretch'],
+  ['speed','⏩ Speed start/end','time-lapse this stretch (waits, downloads)'],
+  ['zoom','🔍 Zoom','zoom in here'],
+  ['callout','💬 Callout','show note text on screen'],
+  ['note','📝 Note','private note for the editor'],
+  ['chapter','▣ Chapter','extra chapter start']
+];
+function buildMarkButtons(doc, container, getNote, clearNote){
+  container.innerHTML='';
+  MARKS.forEach(([k,label,tip])=>{ const b=doc.createElement('button'); b.textContent=label; b.title=tip; b.dataset.k=k;
+    b.onclick=()=>marker(k,getNote(),clearNote); container.appendChild(b); });
+}
+function marker(kind, note, clear){
+  if(!R.on){ log('not recording'); return; }
+  const t=now(); const st=script.steps[idx];
+  if(kind==='cut'||kind==='speed'){
+    const key=kind==='cut'?'cutOpen':'speedOpen';
+    if(R[key]===null){ R[key]={t,note:note||''}; add({t,type:kind+'_start',step:st.id,note}); log(kind+' start'); }
+    else { const o=R[key]; R[key]=null; R.ranges.push({type:kind,start:o.t,end:t,note:o.note||note||'',step:st.id}); add({t,type:kind+'_end',step:st.id,note}); log(kind+' end'); }
+  } else if(kind==='retake'){
+    R.takes.push({step:st.id,from:R.takeStart,to:t}); R.takeStart=t;
+    add({t,type:'retake',step:st.id,note}); log('retake: previous take of "'+st.title+'" dropped');
+  } else { add({t,type:kind,step:st.id,note}); log(kind+(note?': '+note:'')); }
+  if(clear) clear();
+  prompters.forEach(p=>p.update());
+}
+function add(m){ if(!m.note) delete m.note; R.markers.push(m); if(['mark','zoom','callout','retake','step'].includes(m.type)) grab(m); }
+function grab(m){
+  try{ const v=R.vid; if(!v||!v.videoWidth) return; const c=document.createElement('canvas'); c.width=Math.min(1280,v.videoWidth); c.height=Math.round(c.width*v.videoHeight/v.videoWidth);
+    c.getContext('2d').drawImage(v,0,0,c.width,c.height);
+    const n=R.frames.length+1, name=`frames/${String(n).padStart(3,'0')}-${m.type}-${m.step}.jpg`; m.frame=name;
+    c.toBlob(b=>R.frames.push({name,blob:b,t:m.t}),'image/jpeg',.8); }catch(e){}
+}
+
+// ---------- step navigation ----------
+function go(i){
+  i=Math.max(0,Math.min(script.steps.length-1,i)); if(i===idx && R.on) return;
+  if(R.on){ const prev=script.steps[idx]; R.stepEnd[prev.id]=now(); }
+  idx=i; const st=script.steps[idx];
+  if(R.on){ const t=now(); R.takeStart=t; R.stepStart[st.id]=t; add({t,type:'step',step:st.id}); log('step → '+st.title); }
+  renderAll();
+}
+
+// ---------- prompter window ----------
+const PIP_CSS = `body{margin:0;background:#0e1020;color:#f2f4fa;font:14px/1.45 system-ui,Segoe UI,sans-serif;padding:10px}
+button{font:inherit;color:#f2f4fa;background:#1e2240;border:1px solid #2a2f52;border-radius:8px;padding:8px 6px;cursor:pointer}button:hover{border-color:#ffaa28}
+.primary{background:#ffaa28;color:#1a1205;border-color:#ffaa28;font-weight:700}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}.pill{padding:1px 9px;border-radius:99px;border:1px solid #2a2f52;color:#9aa0b8;font-size:12px}
+.pill.live{background:#e62117;border-color:#e62117;color:#fff}
+.lbl{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#ffaa28;margin:10px 0 3px}
+pre.cmd{background:#0a0c16;border:1px solid #2a2f52;border-radius:8px;padding:8px 10px;margin:4px 0;white-space:pre-wrap;word-break:break-all;font:12px/1.45 ui-monospace,Consolas,monospace;position:relative}
+pre.cmd button{position:absolute;right:4px;top:4px;padding:1px 7px;font-size:11px}
+.mk{display:grid;grid-template-columns:1fr 1fr;gap:6px}input{font:inherit;background:#1e2240;color:#f2f4fa;border:1px solid #2a2f52;border-radius:8px;padding:7px 10px;width:100%}`;
+async function openPrompter(){
+  let w=null;
+  try{ if('documentPictureInPicture' in window) w=await documentPictureInPicture.requestWindow({width:460,height:760}); }catch(e){}
+  if(!w) w=window.open('','awxprompter','popup=yes,width=470,height=780');
+  if(!w){ alert('Pop-up blocked. Allow pop-ups for this page.'); return; }
+  const d=w.document; d.open(); d.write('<!doctype html><title>Prompter</title><style>'+PIP_CSS+'</style><div id="r"></div>'); d.close();
+  const root=d.getElementById('r');
+  root.innerHTML=`<div class="row"><b id="tm" style="font:700 22px ui-monospace,Consolas,monospace">00:00</b><span class="pill" id="rp">idle</span><span style="flex:1"></span>
+    <button id="b">◀</button><button class="primary" id="n">Next ▶</button></div><div id="body"></div>
+    <div class="lbl">Markers</div><div class="mk" id="mk"></div><div class="row"><input id="nt" placeholder="note / callout text"></div>`;
+  const nt=d.getElementById('nt');
+  buildMarkButtons(d, d.getElementById('mk'), ()=>nt.value.trim(), ()=>{nt.value='';});
+  d.getElementById('b').onclick=()=>go(idx-1); d.getElementById('n').onclick=()=>go(idx+1);
+  d.addEventListener('keydown',kd);
+  const p={doc:d,win:w,update(){ if(w.closed) return; const st=script.steps[idx];
+      d.getElementById('body').innerHTML=stepHTML(st,idx,true); bindCopy(d.getElementById('body'),st);
+      d.getElementById('tm').textContent=fmt(now()); const rp=d.getElementById('rp'); rp.textContent=R.on?'● REC':'idle'; rp.className='pill'+(R.on?' live':''); }};
+  prompters.push(p); p.update();
+  w.addEventListener('pagehide',()=>{ const i=prompters.indexOf(p); if(i>=0) prompters.splice(i,1); });
+}
+function kd(e){ if(e.target.tagName==='INPUT') return;
+  if(e.key==='ArrowRight'||e.key===' '){ e.preventDefault(); go(idx+1);} else if(e.key==='ArrowLeft'){ go(idx-1); } }
+document.addEventListener('keydown',kd);
+
+// ---------- recording ----------
+function bestMime(){ for(const m of ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm']) if(MediaRecorder.isTypeSupported(m)) return m; return ''; }
+async function listMics(){
+  try{ const t=await navigator.mediaDevices.getUserMedia({audio:true}); t.getTracks().forEach(x=>x.stop()); }catch(e){}
+  const dev=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='audioinput');
+  const s=$('#micSel'); s.innerHTML=''; dev.forEach(d=>{ const o=document.createElement('option'); o.value=d.deviceId; o.textContent=d.label||'microphone'; s.appendChild(o); });
+}
+async function start(){
+  if(R.on) return;
+  if(!$('#skipPre').checked && [...document.querySelectorAll('.pf')].some(c=>!c.checked)) return alert('Tick the pre-flight checklist (or "Skip checklist").');
+  R.mode=document.querySelector('input[name=mode]:checked').value;
+  try{
+    R.screen=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:30,width:{ideal:1920},height:{ideal:1080}},audio:false});
+    if(R.mode==='live') R.mic=await navigator.mediaDevices.getUserMedia({audio:{deviceId:$('#micSel').value?{exact:$('#micSel').value}:undefined,echoCancellation:true,noiseSuppression:true,channelCount:1}});
+  }catch(e){ return alert('Could not start capture: '+e.message); }
+  const vs=R.screen.getVideoTracks()[0]; const set=vs.getSettings(); R.size={w:set.width||0,h:set.height||0,fps:set.frameRate||30};
+  const v=$('#prev'); v.srcObject=R.screen; v.play(); R.vid=v;
+  vs.addEventListener('ended',()=>{ if(R.on) stop(); });
+  const tracks=[vs].concat(R.mic?R.mic.getAudioTracks():[]);
+  const mime=bestMime(); R.mime=mime;
+  R.chunks=[]; R.micChunks=[]; R.markers=[]; R.frames=[]; R.stepStart={}; R.stepEnd={}; R.ranges=[]; R.takes=[]; R.cutOpen=null; R.speedOpen=null; R.finished=null;
+  R.rec=new MediaRecorder(new MediaStream(tracks),{mimeType:mime,videoBitsPerSecond:8e6,audioBitsPerSecond:128e3});
+  R.rec.ondataavailable=e=>{ if(e.data.size) R.chunks.push(e.data); };
+  if(R.mic){ R.micRec=new MediaRecorder(R.mic,{mimeType:'audio/webm;codecs=opus'}); R.micRec.ondataavailable=e=>{ if(e.data.size) R.micChunks.push(e.data); }; }
+  $('#saveCard').classList.add('hide');
+  for(let c=3;c>0;c--){ $('#recPill').textContent='starting in '+c; await new Promise(r=>setTimeout(r,1000)); }
+  idx=0; renderAll();
+  R.rec.onstart=()=>{ R.t0=performance.now(); R.on=true; R.startedAt=new Date().toISOString(); R.takeStart=0;
+    R.stepStart[script.steps[0].id]=0; add({t:0,type:'step',step:script.steps[0].id}); log('recording started'); };
+  R.rec.start(1000); if(R.micRec) R.micRec.start(1000);
+  $('#recBtn').disabled=true; $('#stopBtn').disabled=false; $('#status').textContent='recording'; $('#recPill').textContent='● REC'; $('#recPill').className='pill live';
+  tick();
+}
+function tick(){ if(!R.on) return; $('#timer').textContent=fmt(now()); prompters.forEach(p=>p.update()); setTimeout(tick,500); }
+async function stop(){
+  if(!R.on) return; const t=now(); R.on=false;
+  const last=script.steps[idx]; R.stepEnd[last.id]=t;
+  ['cutOpen','speedOpen'].forEach(k=>{ if(R[k]){ R.ranges.push({type:k==='cutOpen'?'cut':'speed',start:R[k].t,end:t,note:R[k].note||'closed automatically at stop',step:last.id}); R[k]=null; } });
+  R.takes.push({step:last.id,from:R.takeStart,to:null,final:true});
+  await Promise.all([new Promise(r=>{ R.rec.onstop=r; R.rec.stop(); }), R.micRec?new Promise(r=>{ R.micRec.onstop=r; R.micRec.stop(); }):Promise.resolve()]);
+  R.screen.getTracks().forEach(x=>x.stop()); if(R.mic) R.mic.getTracks().forEach(x=>x.stop());
+  await new Promise(r=>setTimeout(r,400));
+  const blob=new Blob(R.chunks,{type:'video/webm'}); const mic=R.micChunks.length?new Blob(R.micChunks,{type:'audio/webm'}):null;
+  R.finished={blob,mic,duration:t,session:buildSession(t,!!mic)};
+  $('#recBtn').disabled=false; $('#stopBtn').disabled=true; $('#status').textContent='take finished'; $('#recPill').textContent='stopped'; $('#recPill').className='pill';
+  $('#saveInfo').textContent=`Duration ${fmt(t)} · video ${(blob.size/1048576).toFixed(0)} MB · ${R.markers.length} markers · ${R.frames.length} frames`;
+  $('#saveCard').classList.remove('hide'); prompters.forEach(p=>p.update()); log('stopped');
+}
+function buildSession(dur, hasMic){
+  const steps=script.steps.map((s,i)=>({id:s.id,index:i,title:s.title,chapter:s.chapter||s.title,start_s:R.stepStart[s.id]??null,end_s:R.stepEnd[s.id]??null,visited:R.stepStart[s.id]!==undefined}));
+  return {
+    schema:SESSION_SCHEMA, created_at:R.startedAt, episode:{number:script.episode,slug:script.slug,title:script.title}, mode:R.mode,
+    recording:{file:'recording.webm',mic_file:hasMic?'mic.webm':null,duration_s:+dur.toFixed(2),width:R.size.w,height:R.size.h,fps:R.size.fps,mime:R.mime,
+               audio_in_recording:R.mode==='live', time_zero:'seconds from the start of recording.webm'},
+    steps, markers:R.markers.map(m=>({...m,t:+m.t.toFixed(2)})),
+    ranges:R.ranges.map(r=>({...r,start:+r.start.toFixed(2),end:+r.end.toFixed(2)})),
+    takes:R.takes.map(t=>({...t,from:+t.from.toFixed(2),to:t.to===null?null:+t.to.toFixed(2)})),
+    frames:R.frames.map(f=>({file:f.name,t:+f.t.toFixed(2)})),
+    script:script, env:{userAgent:navigator.userAgent,screen:[screen.width,screen.height]},
+    format_doc:'See SESSION_FORMAT.md next to this file (or in the repo: studio/SESSION_FORMAT.md). tools/plan_edit.py turns this file into an edit plan and an ffmpeg render.'
+  };
+}
+async function save(){
+  const f=R.finished; if(!f) return; const msg=$('#saveMsg'); const folder=`${script.slug}-${new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')}`;
+  const sj=JSON.stringify(f.session,null,2);
+  try{
+    const dir=await window.showDirectoryPicker({mode:'readwrite'}); const sub=await dir.getDirectoryHandle(folder,{create:true});
+    const w=async(d,name,data)=>{ const fh=await d.getFileHandle(name,{create:true}); const ws=await fh.createWritable(); await ws.write(data); await ws.close(); };
+    await w(sub,'recording.webm',f.blob); if(f.mic) await w(sub,'mic.webm',f.mic); await w(sub,'session.json',sj); await w(sub,'script.json',JSON.stringify(script,null,2));
+    const fd=await sub.getDirectoryHandle('frames',{create:true}); for(const fr of R.frames) await w(fd,fr.name.split('/')[1],fr.blob);
+    msg.textContent='Saved to '+folder; log('saved '+folder);
+  }catch(e){
+    if(e.name==='AbortError'){ msg.textContent='cancelled'; return; }
+    msg.textContent='Folder picker unavailable, downloading files instead (frames are inside session-frames.json)';
+    const dl=(name,blob)=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=folder+'-'+name; a.click(); };
+    dl('recording.webm',f.blob); if(f.mic) dl('mic.webm',f.mic); dl('session.json',new Blob([sj]));
+    const frs={}; for(const fr of R.frames){ frs[fr.name]=await new Promise(r=>{const x=new FileReader();x.onload=()=>r(x.result);x.readAsDataURL(fr.blob);}); }
+    dl('session-frames.json',new Blob([JSON.stringify(frs)]));
+  }
+}
+
+// ---------- boot ----------
+window.addEventListener('DOMContentLoaded',()=>{
+  initScripts();
+  buildMarkButtons(document, $('#mkMain'), ()=>$('#noteMain').value.trim(), ()=>{$('#noteMain').value='';});
+  $('#recBtn').onclick=start; $('#stopBtn').onclick=stop; $('#popBtn').onclick=openPrompter; $('#saveBtn').onclick=save;
+  listMics();
+});
+window.__studio={R,go,marker,start,stop,get script(){return script},get idx(){return idx}};
+</script>
+</body>
+</html>
