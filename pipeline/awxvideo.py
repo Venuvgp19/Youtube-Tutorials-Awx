@@ -9,6 +9,8 @@
   python awxvideo.py render   <project>                  final_silent.mp4 (resumable, rendered in parts)
   python awxvideo.py mix      <project>                  loudnorm voice + ducked music -> <output_name>.mp4
   python awxvideo.py package  <project>                  .srt + youtube_description.txt next to the mp4
+  python awxvideo.py lab-plan <project>                  LAB episodes: Studio session -> edit/edited.mp4 (cuts, retakes, time-lapses, callouts) + lab_steps.json + narration.json
+  python awxvideo.py lab-build <project>                 LAB: title card + edited video (freeze-frame holds so each step's narration fits) + end card, voice placed per step
   python awxvideo.py all      <project>                  narrate, build, slides, render, mix, package
 Every command ends with one JSON line (status + paths) so n8n can read it.
 
@@ -38,7 +40,7 @@ class P:
     def __init__(self, d):
         self.d = os.path.abspath(d)
         self.cfg = jl(self.p("project.json"))
-        self.narr = jl(self.p("narration.json"))
+        self.narr = jl(self.p("narration.json")) if os.path.exists(self.p("narration.json")) else {"segments": []}
         self.spec = jl(self.p("scenes.json")) if os.path.exists(self.p("scenes.json")) else {}
 
     def p(self, *a):
@@ -360,6 +362,8 @@ def cmd_preview(pr, a):
     tl = jl(pr.p("timeline.json"))
     os.makedirs(pr.p("previews"), exist_ok=True)
     ts_ = sorted({round(min(tl["duration"] - 1, s["start"] + (1.5 if i else 0.8)), 1) for i, s in enumerate(tl["shots"])} | {round(c["t0"] + 0.4, 1) for c in tl["captions"][::6]})
+    if tl.get("base_video"):
+        ts_ = sorted(set(ts_) | {round(c["t0"] + 1.5, 1) for c in tl["chapters_ui"]} | {round(c["t0"] + 0.5, 1) for c in tl["captions"][::3]} | {1.0, round(tl["duration"] - 3, 1)})
     ts_ = ts_[:40]
     r = run_render(pr, [pr.p("previews", "pv"), "--preview", ",".join(map(str, ts_))])
     if r.returncode:
@@ -436,6 +440,180 @@ def cmd_package(pr, a):
     return 0
 
 
+# ------------------------------------------------------------------ lab episodes (Studio recording + narration)
+def plan_edit_tool():
+    for c in (os.path.join(HERE, "plan_edit.py"), os.path.join(HERE, "..", "studio", "tools", "plan_edit.py")):
+        if os.path.exists(c):
+            return c
+    raise SystemExit("plan_edit.py not found (expected next to awxvideo.py or in ../studio/tools)")
+
+
+def split_sentences(t):
+    return [x.strip() for x in re.split(r"(?<=[.!?])\s+", t.strip()) if x.strip()]
+
+
+def cmd_lab_plan(pr, a):
+    sp = pr.p("session.json")
+    if not os.path.exists(sp) or not os.path.exists(pr.p("recording.webm")):
+        out("fail", error="session.json / recording.webm not in project folder: save the AWX Studio session into this folder"); return 1
+    S = jl(sp)
+    if S["recording"].get("audio_in_recording"):
+        out("fail", error="this session was recorded in Live mode (voice already in the video). Record in Silent mode for narration to be added."); return 1
+    font = os.path.join(HERE, "fonts", "Inter-Bold.otf").replace("\\", "/").replace(":", "\\:")
+    r = subprocess.run([sys.executable, plan_edit_tool(), pr.d, "--out", pr.p("edit"), "--font", font, "--run"], capture_output=True, text=True)
+    if r.returncode:
+        out("fail", error="plan_edit/ffmpeg failed", log_tail=(r.stdout + r.stderr)[-1500:]); return 1
+    edl = jl(pr.p("edit", "edl.json"))
+    say = {x["id"]: x.get("say", "") for x in S["script"]["steps"]}
+    steps = [{"id": s["id"], "title": s["title"], "chapter": s["chapter"], "say": say.get(s["id"], ""), "out_start": s["out_start"], "out_end": s["out_end"]} for s in edl["steps"]]
+    jd({"episode": S.get("episode", {}), "edited_duration_s": edl["output_duration_s"], "steps": steps, "editor_tasks": edl["editor_tasks"]}, pr.p("lab_steps.json"))
+    if not os.path.exists(pr.p("narration.json")) or not pr.narr["segments"]:
+        ep = pr.spec.get("episode", {})
+        segs = []
+        if ep.get("intro"):
+            segs.append({"id": "open", "chapter": "Intro", "sentences": ep["intro"]})
+        segs += [{"id": s["id"], "chapter": s["chapter"], "sentences": split_sentences(s["say"])} for s in steps if s["say"].strip()]
+        if ep.get("outro"):
+            segs.append({"id": "close", "chapter": "Wrap up", "sentences": ep["outro"]})
+        jd({"segments": segs}, pr.p("narration.json"))
+    out("ok", steps=len(steps), edited_s=edl["output_duration_s"], edited=pr.p("edit", "edited.mp4"), lab_steps=pr.p("lab_steps.json"), editor_tasks=len(edl["editor_tasks"]))
+    return 0
+
+
+def probe_dur(path):
+    return float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path], capture_output=True, text=True).stdout)
+
+
+def cmd_lab_build(pr, a):
+    sys.path.insert(0, HERE)
+    import slidelib
+    edl = jl(pr.p("edit", "edl.json"))
+    steps = edl["steps"]
+    edited = pr.p("edit", "edited.mp4")
+    ed_dur = probe_dur(edited)
+    gens = {g["i"]: g for g in jl(pr.p("generations.json"))}
+    n = len(pr.sentences)
+    if [k for k in range(n) if k not in gens]:
+        raise SystemExit("clips missing; run narrate first")
+    spec = pr.spec
+    gaps = {"sentence": .32}
+    gaps.update(spec.get("gaps", {}))
+    sg = gaps["sentence"]
+    clips, k = {}, 0
+    for seg in pr.narr["segments"]:
+        arr = []
+        for _ in seg["sentences"]:
+            arr.append(trim(load_wav(pr.p("voice", gens[k]["id"] + ".wav")))); k += 1
+        clips[seg["id"]] = arr
+
+    def dur(sid):
+        arr = clips.get(sid, [])
+        return sum(len(x) for x in arr) / SR + sg * max(0, len(arr) - 1)
+
+    LEAD = 0.4
+    t_title = max(4.0, 0.7 + dur("open") + 0.9) if "open" in clips else 4.0
+    t_end = max(8.0, dur("close") + 3.0) if "close" in clips else 8.0
+    plan, cum = [], 0.0
+    for st in steps:
+        avail = st["out_end"] - st["out_start"]
+        hold = max(0.0, LEAD + dur(st["id"]) + 0.6 - avail) if st["id"] in clips else 0.0
+        plan.append({"id": st["id"], "chapter": st["chapter"], "e0": st["out_start"], "e1": min(st["out_end"], ed_dur), "cum": cum, "hold": round(hold, 3)})
+        cum += hold
+    total = t_title + ed_dur + cum + t_end
+
+    # ---- title / end cards
+    ep = spec.get("episode", {})
+    os.makedirs(pr.p("lab"), exist_ok=True)
+    slidelib.title_card(ep).convert("RGB").save(pr.p("lab", "title.png"))
+    slidelib.end_card(ep).convert("RGB").save(pr.p("lab", "end.png"))
+
+    # ---- video: title + edited (with freeze holds) + end
+    fr = 0.2   # real footage kept before each freeze so the hold always has frames to clone
+    fmt = "fps=30,scale=1920:1080,setsar=1,format=yuv420p"
+    fc = [f"[0:v]{fmt},fade=t=out:st={max(0, t_title - 0.4):.3f}:d=0.4[c0]"]
+    labels = ["[c0]"]
+    prev, idx = 0.0, 0
+    holds = [p for p in plan if p["hold"] > 0.02]
+    holds.sort(key=lambda p: p["e1"])
+    for p in holds:
+        b = max(prev + fr, p["e1"])
+        fc.append(f"[1:v]trim=start={prev:.3f}:end={b - fr:.3f},setpts=PTS-STARTPTS,{fmt}[p{idx}]")
+        fc.append(f"[1:v]trim=start={b - fr:.3f}:end={b:.3f},setpts=PTS-STARTPTS,{fmt},tpad=stop_mode=clone:stop_duration={p['hold']:.3f}[h{idx}]")
+        labels += [f"[p{idx}]", f"[h{idx}]"]
+        prev = b; idx += 1
+    fc.append(f"[1:v]trim=start={prev:.3f}:end={ed_dur:.3f},setpts=PTS-STARTPTS,{fmt}[p{idx}]")
+    labels.append(f"[p{idx}]")
+    fc.append(f"[2:v]{fmt},fade=t=in:st=0:d=0.4[cN]")
+    labels.append("[cN]")
+    fc.append("".join(labels) + f"concat=n={len(labels)}:v=1:a=0[v]")
+    r = subprocess.run(["ffmpeg", "-y", "-v", "error", "-loop", "1", "-framerate", "30", "-t", f"{t_title:.3f}", "-i", pr.p("lab", "title.png"), "-fflags", "+genpts", "-i", edited,
+                        "-loop", "1", "-framerate", "30", "-t", f"{t_end:.3f}", "-i", pr.p("lab", "end.png"), "-filter_complex", ";".join(fc), "-map", "[v]",
+                        "-c:v", "libx264", "-preset", "veryfast", "-crf", "16", "-pix_fmt", "yuv420p", pr.p("base_silent.mp4")], capture_output=True, text=True)
+    if r.returncode:
+        out("fail", error="ffmpeg compose failed", log_tail=r.stderr[-1500:]); return 1
+    got = probe_dur(pr.p("base_silent.mp4"))
+    if abs(got - total) > 0.6:
+        out("fail", error=f"composited video is {got:.1f}s, expected {total:.1f}s"); return 1
+
+    # ---- voice placement
+    buf = np.zeros(int((total + 1) * SR), np.float32)
+    times, k = [], 0
+    starts = {"open": 0.7, "close": t_title + ed_dur + cum + 0.8}
+    for p in plan:
+        starts[p["id"]] = t_title + p["e0"] + p["cum"] + LEAD
+    for seg in pr.narr["segments"]:
+        t = starts.get(seg["id"], t_title)
+        for i, text in enumerate(seg["sentences"]):
+            c = clips[seg["id"]][i]
+            a0 = int(t * SR)
+            buf[a0:a0 + len(c)] += c[:max(0, len(buf) - a0)]
+            times.append({"k": k, "seg": seg["id"], "i": i, "text": text, "start": round(t, 3), "end": round(t + len(c) / SR, 3)})
+            t += len(c) / SR + sg; k += 1
+    for x, y in zip(times, times[1:]):
+        if y["start"] < x["end"] - 0.02:
+            print(f"WARNING overlap {x['seg']}#{x['i']} / {y['seg']}#{y['i']}", file=sys.stderr)
+    buf = buf[:int(total * SR)]
+    with wave.open(pr.p("voiceover_raw.wav"), "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR)
+        w.writeframes((np.clip(buf, -1, 1) * 32767).astype(np.int16).tobytes())
+    jd(times, pr.p("sentence_times.json"))
+
+    # ---- captions, chapters, timeline
+    disp = spec.get("display", [])
+
+    def display(s):
+        for x, y in disp:
+            s = s.replace(x, y)
+        return s
+    caps = []
+    for x in times:
+        parts = chunks(display(x["text"]))
+        tot = sum(len(q) for q in parts)
+        t0 = x["start"]
+        for q in parts:
+            d = (x["end"] - x["start"]) * len(q) / tot
+            caps.append({"t0": round(t0, 3), "t1": round(t0 + d, 3), "text": q}); t0 += d
+    for x, y in zip(caps, caps[1:]):
+        if 0 < y["t0"] - x["t1"] < 0.4:
+            x["t1"] = y["t0"]
+    with open(pr.p("video.srt"), "w", encoding="utf-8") as f:
+        for j, c in enumerate(caps, 1):
+            f.write(f"{j}\n{ts(c['t0'])} --> {ts(c['t1'])}\n{c['text']}\n\n")
+    ch = [(0.0, "Intro")]
+    pills = []
+    for j, p in enumerate(plan, 1):
+        st = t_title + p["e0"] + p["cum"]
+        ch.append((st, p["chapter"]))
+        pills.append({"t0": round(st, 3), "t1": round(st + 3.4, 3), "num": j, "text": p["chapter"]})
+    with open(pr.p("chapters.txt"), "w", encoding="utf-8") as f:
+        for st, name in ch:
+            f.write(f"{int(st) // 60}:{int(st) % 60:02d} {name}\n")
+    jd({"lower_thirds": [], "duration": round(got, 3), "fade_in": 0.5, "fade_out": 1.2, "shots": [], "base_video": "base_silent.mp4", "captions": caps, "chapters_ui": pills}, pr.p("timeline.json"))
+    jd({"plan": plan, "title_s": t_title, "end_s": t_end, "holds_total_s": round(cum, 2)}, pr.p("lab_build.json"))
+    out("ok", duration_s=round(got, 1), expected_s=round(total, 1), holds_total_s=round(cum, 1), steps=len(plan), captions=len(caps), timeline=pr.p("timeline.json"))
+    return 0
+
+
 def cmd_all(pr, a):
     for fn in (cmd_narrate, cmd_build, cmd_slides, cmd_render, cmd_mix, cmd_package):
         rc = fn(pr, a)
@@ -446,14 +624,14 @@ def cmd_all(pr, a):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=["doctor", "narrate", "build", "slides", "preview", "render", "mix", "package", "all"])
+    ap.add_argument("cmd", choices=["doctor", "narrate", "build", "slides", "preview", "render", "mix", "package", "all", "lab-plan", "lab-build"])
     ap.add_argument("project")
     ap.add_argument("--voicebox", action="store_true")
     ap.add_argument("--strict", action="store_true")
     ap.add_argument("--part-frames", type=int, default=2200)
     a = ap.parse_args()
     pr = P(a.project)
-    sys.exit(globals()["cmd_" + a.cmd](pr, a) or 0)
+    sys.exit(globals()["cmd_" + a.cmd.replace("-", "_")](pr, a) or 0)
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@
   GET  /health
   GET  /project?name=ep03            -> {exists, shots:[...], has_music, files:[...]}
   POST /write   {"project":"ep03","files":{"narration.json":{...},"scenes.json":{...}}}   (creates the project from template/ if new)
-  POST /run     {"project":"ep03","cmd":"narrate"|"build"|"slides"|"preview"|"render"|"mix"|"package"|"doctor","voicebox":false}
+  POST /run     {"project":"ep03","cmd":"narrate"|"build"|"slides"|"preview"|"render"|"mix"|"package"|"doctor"|"lab-plan"|"lab-build","voicebox":false}
   GET  /file?project=ep03&path=previews/sheet.jpg   (any file inside the project)
 Headers: X-Token: <token> when --token is set.  Run commands block until finished (n8n: set a long HTTP timeout).
 """
@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CMDS = {"doctor", "narrate", "build", "slides", "preview", "render", "mix", "package"}
+CMDS = {"doctor", "narrate", "build", "slides", "preview", "render", "mix", "package", "lab-plan", "lab-build"}
 LOCK = threading.Lock()  # one pipeline job at a time (Voicebox queue and CPU are shared)
 ARGS = None
 
@@ -55,7 +55,7 @@ class H(BaseHTTPRequestHandler):
             if u.path == "/project":
                 d = pdir(q.get("name"))
                 shots = sorted(os.listdir(os.path.join(d, "shots"))) if os.path.isdir(os.path.join(d, "shots")) else []
-                return self.reply({"exists": os.path.isdir(d), "shots": shots, "has_music": os.path.exists(os.path.join(d, "music.mp3")),
+                return self.reply({"exists": os.path.isdir(d), "has_session": os.path.exists(os.path.join(d, "session.json")) and os.path.exists(os.path.join(d, "recording.webm")), "shots": shots, "has_music": os.path.exists(os.path.join(d, "music.mp3")),
                                    "files": sorted(os.listdir(d)) if os.path.isdir(d) else []})
             if u.path == "/file":
                 p = safe_in(pdir(q.get("project")), q.get("path", ""))
@@ -71,9 +71,11 @@ class H(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
             d = pdir(body.get("project"))
             if self.path == "/write":
-                if not os.path.isdir(d):
-                    os.makedirs(d); shutil.copy(os.path.join(HERE, "template", "project.json"), d); shutil.copy(os.path.join(HERE, "template", "music.mp3"), d)
-                    os.makedirs(os.path.join(d, "shots"), exist_ok=True)
+                os.makedirs(d, exist_ok=True)   # a Studio session folder may already exist: add what is missing
+                for f in ("project.json", "music.mp3"):
+                    if not os.path.exists(os.path.join(d, f)):
+                        shutil.copy(os.path.join(HERE, "template", f), d)
+                os.makedirs(os.path.join(d, "shots"), exist_ok=True)
                 for name, content in body["files"].items():
                     if name not in ("narration.json", "scenes.json", "project.json"):
                         raise ValueError("only narration.json / scenes.json / project.json may be written")

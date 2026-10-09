@@ -27,5 +27,8 @@ narration.json + scenes.json  ->  narrate  ->  build  ->  slides  ->  preview  -
 ## Runner for n8n
 `python server.py --projects C:\path\to\_projects` exposes the commands over HTTP on 127.0.0.1:8787 (see docstring). Use `--host 0.0.0.0` if n8n runs in Docker (then Config.runner = `http://host.docker.internal:8787`).
 
-## Not included yet
-Lab videos recorded with AWX Studio (`studio/tools/plan_edit.py` produces the cut; mixing it with narration/title/end cards is a separate compose step).
+## Lab episodes (recorded in AWX Studio, Silent mode)
+Save the Studio session folder (`recording.webm`, `session.json`, ...) inside your projects folder, then:
+`lab-plan` (cuts, dropped retakes, time-lapses, callouts -> `edit/edited.mp4`, writes `lab_steps.json`) -> write `narration.json` (spoken form, one segment per step, plus `open` and `close`) and `scenes.json` (episode meta + `display`) -> `narrate` -> `lab-build` -> `preview` -> `render` -> `mix` -> `package`.
+`lab-build` starts each step's narration when the step starts. If the narration is longer than the footage, the last frame of that step is held (freeze) so voice and picture never drift. Title and end cards, chapters, captions and ducked music are the same as slide episodes.
+Zoom / note / mark markers are not automated; they are listed in `lab_steps.json` (`editor_tasks`). Live-mode recordings (voice already in the video) are rejected by `lab-plan`.

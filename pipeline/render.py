@@ -313,18 +313,23 @@ def render_shot(shot, t):
     return frame
 
 
-def render_frame(tl, t):
+def render_frame(tl, t, base=None):
     shots = tl["shots"]
     xf = tl.get("crossfade", 0.4)
-    cur = None
-    for i, s in enumerate(shots):
+    if base is not None:
+        frame = base
+        cur = -1
+    else:
+        cur = None
+    for i, s in enumerate(shots if base is None else []):
         if s["start"] <= t < s["end"] or (i == len(shots) - 1 and t >= s["start"]):
             cur = i
     if cur is None:
         cur = 0
-    frame = render_shot(shots[cur], t)
-    s = shots[cur]
-    if cur > 0 and t - s["start"] < xf and s.get("transition", "fade") == "fade":
+    if base is None:
+        frame = render_shot(shots[cur], t)
+        s = shots[cur]
+    if base is None and cur > 0 and t - s["start"] < xf and s.get("transition", "fade") == "fade":
         prev = render_shot(shots[cur - 1], t)
         a = ease((t - s["start"]) / xf)
         frame = cv2.addWeighted(frame, a, prev, 1 - a, 0)
@@ -357,13 +362,20 @@ def render_frame(tl, t):
     return frame
 
 
+def grab_base(tl, t):
+    r = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{t:.3f}", "-i", tl["base_video"], "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-"], capture_output=True)
+    if len(r.stdout) != W * H * 3:
+        return np.zeros((H, W, 3), np.uint8)
+    return np.frombuffer(r.stdout, np.uint8).reshape(H, W, 3).copy()
+
+
 def main():
     tl = json.load(open(sys.argv[1]))
     out = sys.argv[2]
     if "--preview" in sys.argv:
         ts = [float(x) for x in sys.argv[sys.argv.index("--preview") + 1].split(",")]
         for t in ts:
-            f = render_frame(tl, t)
+            f = render_frame(tl, t, grab_base(tl, t) if tl.get("base_video") else None)
             cv2.imwrite(f"{out}_{t:07.2f}.jpg", cv2.cvtColor(f, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, 88])
         return
     import os
@@ -371,8 +383,16 @@ def main():
     a0 = int(os.environ.get('F0', 0)); n = min(n, int(os.environ.get('F1', n)))
     ff = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
                            "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p", out], stdin=subprocess.PIPE)
+    dec = None
+    if tl.get("base_video"):
+        dec = subprocess.Popen(["ffmpeg", "-v", "error", "-ss", f"{a0 / FPS:.3f}", "-i", tl["base_video"], "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-"], stdout=subprocess.PIPE)
     for i in range(a0, n):
-        ff.stdin.write(render_frame(tl, i / FPS).tobytes())
+        base = None
+        if dec is not None:
+            buf = dec.stdout.read(W * H * 3)
+            base = np.frombuffer(buf, np.uint8).reshape(H, W, 3).copy() if len(buf) == W * H * 3 else (last if i > a0 else np.zeros((H, W, 3), np.uint8))
+            last = base
+        ff.stdin.write(render_frame(tl, i / FPS, base).tobytes())
         if i % 150 == 0:
             print(f"frame {i}/{n}", flush=True)
     ff.stdin.close()

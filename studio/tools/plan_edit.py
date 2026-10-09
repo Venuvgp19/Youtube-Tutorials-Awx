@@ -171,7 +171,7 @@ def main():
     last = "vc"
     fontopt = f":fontfile='{a.font}'" if a.font else ""
     for k, c in enumerate(callouts):
-        fc.append(f"[{last}]drawtext=text='{esc_text(c['text'])}'{fontopt}:fontsize=44:fontcolor=white:box=1:boxcolor=0x000000AA:boxborderw=18:x=(w-text_w)/2:y=h-140:enable='between(t,{c['t']},{c['t'] + c['dur']})'[d{k}]")
+        fc.append(f"[{last}]drawtext=text='{esc_text(c['text'])}'{fontopt}:fontsize=44:fontcolor=white:box=1:boxcolor=0x000000AA:boxborderw=18:x=(w-text_w)/2:y=h-260:enable='between(t,{c['t']},{c['t'] + c['dur']})'[d{k}]")
         last = f"d{k}"
     cmd = ["ffmpeg", "-y", "-fflags", "+genpts", "-i", os.path.join(base, rec["file"]), "-filter_complex", ";".join(fc), "-map", f"[{last}]"]
     if live:

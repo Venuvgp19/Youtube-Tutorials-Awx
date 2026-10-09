@@ -1,0 +1,1446 @@
+{
+  "name": "AWX lab episode builder (Studio recording)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## AWX LAB episode builder\nFor episodes you record yourself in **AWX Studio** (Silent mode).\n\n1. Record in Studio, save the session folder into your `_projects` folder.\n2. Run this workflow: it cuts the recording (cuts, retakes dropped, time-lapses, callouts), has the AI turn your script into **spoken** narration, records it in your Voicebox voice (Whisper-checked), holds the last frame of a step when the narration is longer than the footage, adds title/end card, captions, chapters and music.\n3. You approve a preview sheet before the long render.\n\nNeeds `pipeline/server.py` running (see n8n/README.md). Edit **Config** first.",
+        "height": 300,
+        "width": 520
+      },
+      "id": "n01",
+      "name": "Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "path": "awx-lab-episode",
+        "formTitle": "AWX from Zero - lab episode (Studio recording)",
+        "formDescription": "Save the Studio session folder (recording.webm, session.json, ...) into your _projects folder first, then give its folder name.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Session folder name",
+              "placeholder": "ep02-awx-install-2026-10-09",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Episode number",
+              "fieldType": "number",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Episode title",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Subtitle (optional)"
+            },
+            {
+              "fieldLabel": "Next episode title"
+            },
+            {
+              "fieldLabel": "Next episode tagline"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n02",
+      "name": "Lab episode form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a0",
+              "name": "runner",
+              "value": "http://127.0.0.1:8787",
+              "type": "string"
+            },
+            {
+              "id": "a1",
+              "name": "runnerBrowser",
+              "value": "http://127.0.0.1:8787",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "token",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "llmModel",
+              "value": "nvidia/llama-3.3-nemotron-super-49b-v1",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "project",
+              "value": "={{ $json['Session folder name'] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "n03",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').first().json.runner }}/project?name={{ encodeURIComponent($('Config').first().json.project) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Token",
+              "value": "={{ $('Config').first().json.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n04",
+      "name": "Project info",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.has_session }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "n05",
+      "name": "Session present?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ 'No session.json + recording.webm in ' + $('Config').first().json.project + '. In AWX Studio use Silent mode and save the session folder inside your _projects folder.' }}"
+      },
+      "id": "n06",
+      "name": "Stop: no session",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ 'Stage failed: ' + ($json.status || '') + '\\n' + ($json.error || '') + '\\n' + ($json.result && $json.result.error ? $json.result.error : '') + '\\n' + ($json.log_tail || '') }}"
+      },
+      "id": "n07",
+      "name": "Stop: pipeline failed",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.runner }}/run",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Token",
+              "value": "={{ $('Config').first().json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({project: $('Config').first().json.project, cmd: 'doctor', voicebox: true}) }}",
+        "options": {
+          "timeout": 7200000
+        }
+      },
+      "id": "n08",
+      "name": "Doctor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "ok",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "n09",
+      "name": "Environment OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.runner }}/run",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Token",
+              "value": "={{ $('Config').first().json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({project: $('Config').first().json.project, cmd: 'lab-plan'}) }}",
+        "options": {
+          "timeout": 7200000
+        }
+      },
+      "id": "n10",
+      "name": "Cut the recording (lab-plan)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "ok",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "n11",
+      "name": "Cut OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1540,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').first().json.runner }}/file?project={{ encodeURIComponent($('Config').first().json.project) }}&path=lab_steps.json",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Token",
+              "value": "={{ $('Config').first().json.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n12",
+      "name": "Lab steps",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst cfg = $('Config').first().json;\nconst lab = $('Lab steps').first().json;\nconst prev = $json.errors ? $json : null;\nconst steps = lab.steps.filter(s => (s.say || '').trim()).map(s => ({id: s.id, chapter: s.chapter, available_s: Math.round((s.out_end - s.out_start) * 10) / 10, script: s.say}));\nconst sys = `You turn a presenter's screen-recording script into SPOKEN narration for the YouTube series \"AWX from Zero\" (channel Venu Automates), beginner audience. A cloned voice reads it, then speech-to-text checks it. Output ONE JSON object and nothing else.\nRULES:\n- Stay faithful to each step's script: same facts, same order. Do not invent facts, commands or numbers.\n- NO digits anywhere. Spell everything as spoken: numbers (\"four vCPUs\", \"sixty gigabyte disk\"), ports (\"thirty thousand eighty\"), versions (\"two point nineteen point one\"), letters (\"S E Linux\", \"K three S\"). Put the on-screen spelling in \"display\" ([[\"spoken\",\"shown\"],...]) so captions read \"SELinux\", \"k3s\", \"30080\", \"24.6.1\".\n- Short spoken sentences, max 22 words each, contractions fine, plain and warm. Never read flags or file paths aloud; describe what the command does.\n- The video shows the command being typed and running while you speak. Length per step: aim for at most about 2.2 words per second of available_s plus 10 words; if the script is longer, tighten it (the video will freeze the last frame for any overrun, so do not pad).\n- Prefer \"containers\" to \"pods\" when ambiguous (speech-to-text mishears it).\n- Also write \"open\": 3 sentences (hook, what we do today, what the viewer gets) and \"close\": 3 sentences (recap, snapshot/next-step advice from the script if any, then \"All the commands are in the repo, in the epNN folder\" with the number spelled out).\nOUTPUT SHAPE: {\"open\":[\"...\"],\"steps\":{\"<step id>\":[\"...\"]},\"close\":[\"...\"],\"display\":[[\"spoken\",\"shown\"]]}`;\nlet user = `Episode ${$('Lab episode form').first().json['Episode number']}: ${$('Lab episode form').first().json['Episode title']}\\nSteps (in order):\\n` + JSON.stringify(steps, null, 1);\nif (prev) user += `\\n\\nYour previous answer failed validation. Fix these problems and return the full corrected JSON:\\n- ` + prev.errors.join('\\n- ');\nreturn [{json:{model: cfg.llmModel, messages:[{role:'system',content:sys},{role:'user',content:user}], errors: undefined}}];\n"
+      },
+      "id": "n13",
+      "name": "Build prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://integrate.api.nvidia.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({model: $json.model, messages: $json.messages, temperature: 0.2, top_p: 0.9, max_tokens: 6000}) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "n14",
+      "name": "Spoken rewrite (NVIDIA LLM)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "NVIDIA API (Authorization: Bearer nvapi-...)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst cfg = $('Config').first().json;\nconst form = $('Lab episode form').first().json;\nconst lab = $('Lab steps').first().json;\nconst raw = ($json.choices?.[0]?.message?.content || '').trim();\nconst errors = [];\nlet data = null;\ntry { const m = raw.match(/\\{[\\s\\S]*\\}/); data = JSON.parse(m ? m[0] : raw); } catch (e) { errors.push('Output is not valid JSON: ' + e.message); }\nconst words = t => t.split(/\\s+/).filter(Boolean).length;\nconst check = (label, arr, min) => {\n  if (!Array.isArray(arr) || arr.length < min) { errors.push(`${label}: needs ${min}+ sentences`); return; }\n  arr.forEach((t, i) => {\n    if (typeof t !== 'string') { errors.push(`${label} ${i}: not a string`); return; }\n    if (/\\d/.test(t)) errors.push(`${label} sentence ${i}: contains digits - spell them out (\"${t.slice(0,50)}\")`);\n    if (words(t) > 32) errors.push(`${label} sentence ${i}: longer than 32 words - split it`);\n  });\n};\nif (data) {\n  check('open', data.open, 2); check('close', data.close, 2);\n  lab.steps.filter(s => (s.say || '').trim()).forEach(s => {\n    const arr = data.steps?.[s.id];\n    check('step ' + s.id, arr, 1);\n    if (Array.isArray(arr)) {\n      const avail = s.out_end - s.out_start, w = arr.reduce((n, t) => n + words(t), 0);\n      if (w > 2.6 * avail + 35) errors.push(`step ${s.id}: ${w} words is too long for ${avail.toFixed(0)}s of footage - shorten to about ${Math.round(2.2 * avail + 10)} words`);\n    }\n  });\n}\nconst attempt = $runIndex + 1;\nif (errors.length) return [{json:{ok:false, errors:errors.slice(0,12), attempt}}];\nconst segs = [{id:'open', chapter:'Intro', sentences:data.open}];\nlab.steps.filter(s => (s.say || '').trim()).forEach(s => segs.push({id:s.id, chapter:s.chapter, sentences:data.steps[s.id]}));\nsegs.push({id:'close', chapter:'Wrap up', sentences:data.close});\nconst num = Number(form['Episode number']);\nconst episode = {series:'AWX from Zero', number:num, title:form['Episode title'], subtitle:form['Subtitle (optional)'] || '', channel:'Venu Automates', handle:'@VenAutomates',\n  folder:'ep' + String(num).padStart(2,'0'), repo:'github.com/Venuvgp19/Youtube-Tutorials-Awx', next:{title:form['Next episode title'] || 'Next episode', sub:form['Next episode tagline'] || ''},\n  description: form['Episode title'], output_name:`AWX from Zero - Ep ${String(num).padStart(2,'0')} - ${form['Episode title']}`.replace(/[\\\\/:*?\"<>|]/g,'')};\nreturn [{json:{ok:true, attempt, files:{'narration.json':{segments:segs}, 'scenes.json':{episode, gaps:{sentence:0.32}, display:data.display || []}}}}];\n"
+      },
+      "id": "n15",
+      "name": "Validate narration",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "n16",
+      "name": "Narration valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2640,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.attempt }}",
+              "rightValue": "3",
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "n17",
+      "name": "Retries left?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2640,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ 'AI narration failed validation 3 times: ' + $json.errors.join('; ') }}"
+      },
+      "id": "n18",
+      "name": "Narration failed",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        2860,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.runner }}/write",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Token",
+              "value": "={{ $('Config').first().json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({project: $('Config').first().json.project, files: $json.files}) }}",
+        "options": {}
+      },
+      "id": "n19",
+      "name": "Write narration + meta",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2860,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.runner }}/run",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Token",
+              "value": "={{ $('Config').first().json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({project: $('Config').first().json.project, cmd: 'narrate'}) }}",
+        "options": {
+          "timeout": 7200000
+        }
+      },
+      "id": "n20",
+      "name": "Narrate (Voicebox + Whisper check)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3080,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "ok",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "n21",
+      "name": "Narration clean?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3300,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "form",
+        "formTitle": "Narration needs a listen",
+        "formDescription": "={{ 'These lines did not match what Whisper heard after 4 seeds. Listen in Voicebox (history) or re-word them in narration.json and re-run.<br><br>' + ($json.result.flagged || []).map(f => '<b>#' + f.k + '</b> expected: ' + f.text + '<br>&nbsp;&nbsp;heard: ' + f.heard).join('<br><br>') }}",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Decision",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "accept as is"
+                  },
+                  {
+                    "option": "abort"
+                  }
+                ]
+              },
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n22",
+      "name": "Review flagged lines",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3520,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.Decision }}",
+              "rightValue": "accept as is",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "n23",
+      "name": "Accepted?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3740,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.runner }}/run",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Token",
+              "value": "={{ $('Config').first().json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({project: $('Config').first().json.project, cmd: 'lab-build'}) }}",
+        "options": {
+          "timeout": 7200000
+        }
+      },
+      "id": "n24",
+      "name": "Compose: video + voice (lab-build)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3960,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "ok",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "n25",
+      "name": "Compose OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4180,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.runner }}/run",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Token",
+              "value": "={{ $('Config').first().json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({project: $('Config').first().json.project, cmd: 'preview'}) }}",
+        "options": {
+          "timeout": 7200000
+        }
+      },
+      "id": "n26",
+      "name": "Preview frames",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4400,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "ok",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "n27",
+      "name": "Preview OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4620,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "form",
+        "formTitle": "Approve the preview before the long render",
+        "formDescription": "={{ 'Check chapters, captions, title/end cards and that freeze-holds feel right. Editor tasks you may still want to do by hand (zoom/note/mark markers) are listed in lab_steps.json.<br><a href=\"' + $('Config').first().json.runnerBrowser + '/file?project=' + $('Config').first().json.project + '&path=previews/sheet.jpg\" target=\"_blank\">Open the contact sheet</a><br><img style=\"max-width:100%\" src=\"' + $('Config').first().json.runnerBrowser + '/file?project=' + $('Config').first().json.project + '&path=previews/sheet.jpg\">' }}",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Decision",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "approve"
+                  },
+                  {
+                    "option": "reject"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Notes (if rejecting)",
+              "fieldType": "textarea"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n28",
+      "name": "Approve preview",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        4840,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.Decision }}",
+              "rightValue": "approve",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "n29",
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5060,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ 'Preview rejected: ' + ($json['Notes (if rejecting)'] || 'no notes') + '. Re-record or fix in Studio markers, or edit narration.json, then re-run.' }}"
+      },
+      "id": "n30",
+      "name": "Rejected",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        5060,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.runner }}/run",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Token",
+              "value": "={{ $('Config').first().json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({project: $('Config').first().json.project, cmd: 'render'}) }}",
+        "options": {
+          "timeout": 7200000
+        }
+      },
+      "id": "n31",
+      "name": "Render video (long)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5280,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "ok",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "n32",
+      "name": "Render OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5500,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.runner }}/run",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Token",
+              "value": "={{ $('Config').first().json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({project: $('Config').first().json.project, cmd: 'mix'}) }}",
+        "options": {
+          "timeout": 7200000
+        }
+      },
+      "id": "n33",
+      "name": "Mix voice + music",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5720,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "ok",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "n34",
+      "name": "Mix OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5940,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.runner }}/run",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Token",
+              "value": "={{ $('Config').first().json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({project: $('Config').first().json.project, cmd: 'package'}) }}",
+        "options": {
+          "timeout": 7200000
+        }
+      },
+      "id": "n35",
+      "name": "Package (srt + description)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6160,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a0",
+              "name": "message",
+              "value": "={{ 'Lab episode ready: ' + $('Config').first().json.project }}",
+              "type": "string"
+            },
+            {
+              "id": "a1",
+              "name": "files",
+              "value": "={{ ($json.result.files || []).join('\\n') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "n36",
+      "name": "Done",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        6380,
+        -100
+      ]
+    }
+  ],
+  "connections": {
+    "Lab episode form": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Project info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Project info": {
+      "main": [
+        [
+          {
+            "node": "Session present?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Session present?": {
+      "main": [
+        [
+          {
+            "node": "Doctor",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop: no session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Doctor": {
+      "main": [
+        [
+          {
+            "node": "Environment OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Environment OK?": {
+      "main": [
+        [
+          {
+            "node": "Cut the recording (lab-plan)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop: pipeline failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cut the recording (lab-plan)": {
+      "main": [
+        [
+          {
+            "node": "Cut OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cut OK?": {
+      "main": [
+        [
+          {
+            "node": "Lab steps",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop: pipeline failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lab steps": {
+      "main": [
+        [
+          {
+            "node": "Build prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build prompt": {
+      "main": [
+        [
+          {
+            "node": "Spoken rewrite (NVIDIA LLM)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spoken rewrite (NVIDIA LLM)": {
+      "main": [
+        [
+          {
+            "node": "Validate narration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate narration": {
+      "main": [
+        [
+          {
+            "node": "Narration valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Narration valid?": {
+      "main": [
+        [
+          {
+            "node": "Write narration + meta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Retries left?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retries left?": {
+      "main": [
+        [
+          {
+            "node": "Build prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Narration failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write narration + meta": {
+      "main": [
+        [
+          {
+            "node": "Narrate (Voicebox + Whisper check)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Narrate (Voicebox + Whisper check)": {
+      "main": [
+        [
+          {
+            "node": "Narration clean?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Narration clean?": {
+      "main": [
+        [
+          {
+            "node": "Compose: video + voice (lab-build)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Review flagged lines",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Review flagged lines": {
+      "main": [
+        [
+          {
+            "node": "Accepted?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accepted?": {
+      "main": [
+        [
+          {
+            "node": "Compose: video + voice (lab-build)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop: pipeline failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose: video + voice (lab-build)": {
+      "main": [
+        [
+          {
+            "node": "Compose OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose OK?": {
+      "main": [
+        [
+          {
+            "node": "Preview frames",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop: pipeline failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preview frames": {
+      "main": [
+        [
+          {
+            "node": "Preview OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preview OK?": {
+      "main": [
+        [
+          {
+            "node": "Approve preview",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop: pipeline failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve preview": {
+      "main": [
+        [
+          {
+            "node": "Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approved?": {
+      "main": [
+        [
+          {
+            "node": "Render video (long)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render video (long)": {
+      "main": [
+        [
+          {
+            "node": "Render OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render OK?": {
+      "main": [
+        [
+          {
+            "node": "Mix voice + music",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop: pipeline failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mix voice + music": {
+      "main": [
+        [
+          {
+            "node": "Mix OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mix OK?": {
+      "main": [
+        [
+          {
+            "node": "Package (srt + description)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop: pipeline failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Package (srt + description)": {
+      "main": [
+        [
+          {
+            "node": "Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
