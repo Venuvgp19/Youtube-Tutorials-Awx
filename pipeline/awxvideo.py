@@ -39,6 +39,11 @@ def out(status, **kw):
 class P:
     def __init__(self, d):
         self.d = os.path.abspath(d)
+        if os.path.isdir(self.d):
+            tpl = os.path.join(HERE, "template")
+            for f in ("project.json", "music.mp3"):   # Studio session folders start without these
+                if not os.path.exists(self.p(f)) and os.path.exists(os.path.join(tpl, f)):
+                    shutil.copy(os.path.join(tpl, f), self.p(f))
         self.cfg = jl(self.p("project.json"))
         self.narr = jl(self.p("narration.json")) if os.path.exists(self.p("narration.json")) else {"segments": []}
         self.spec = jl(self.p("scenes.json")) if os.path.exists(self.p("scenes.json")) else {}
