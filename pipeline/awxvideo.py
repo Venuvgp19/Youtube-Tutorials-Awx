@@ -243,6 +243,14 @@ def chunks(text, maxc=62):
     return out_
 
 
+def check_length(pr, duration):
+    mx = float(pr.cfg.get("max_minutes", 15))
+    if duration > mx * 60:
+        out("fail", error=f"video would be {duration / 60:.1f} min, over the {mx:.0f} min limit (project.json max_minutes). Shorten the narration or, for lab episodes, cut/speed up more in Studio.", duration_s=round(duration, 1))
+        return False
+    return True
+
+
 def cmd_build(pr, a):
     spec, narr = pr.spec, pr.narr
     gaps = {"lead": .7, "sentence": .32, "segment": .85, "tail": 5.0, "after_seg": {}, "extra": []}
@@ -339,6 +347,8 @@ def cmd_build(pr, a):
         for st, name in yt:
             f.write(f"{int(st) // 60}:{int(st) % 60:02d} {name}\n")
     jd({"lower_thirds": [], "duration": round(duration, 3), "crossfade": 0.4, "fade_in": 0.5, "fade_out": 1.2, "shots": shots, "captions": caps, "chapters_ui": pills}, pr.p("timeline.json"))
+    if not check_length(pr, duration):
+        return 1
     out("ok", duration_s=round(duration, 1), shots=len(shots), captions=len(caps), timeline=pr.p("timeline.json"))
     return 0
 
@@ -610,6 +620,8 @@ def cmd_lab_build(pr, a):
             f.write(f"{int(st) // 60}:{int(st) % 60:02d} {name}\n")
     jd({"lower_thirds": [], "duration": round(got, 3), "fade_in": 0.5, "fade_out": 1.2, "shots": [], "base_video": "base_silent.mp4", "captions": caps, "chapters_ui": pills}, pr.p("timeline.json"))
     jd({"plan": plan, "title_s": t_title, "end_s": t_end, "holds_total_s": round(cum, 2)}, pr.p("lab_build.json"))
+    if not check_length(pr, got):
+        return 1
     out("ok", duration_s=round(got, 1), expected_s=round(total, 1), holds_total_s=round(cum, 1), steps=len(plan), captions=len(caps), timeline=pr.p("timeline.json"))
     return 0
 

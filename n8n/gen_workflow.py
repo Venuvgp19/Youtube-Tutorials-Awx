@@ -45,7 +45,7 @@ add("Notes", "n8n-nodes-base.stickyNote", 1, {"content": "## AWX episode builder
 add("New episode brief", "n8n-nodes-base.formTrigger", 2.2, {"path": "awx-episode", "formTitle": "AWX from Zero - new episode", "formDescription": "AI drafts narration + scenes from your outline, then the pipeline builds the video. You approve before the long render.",
     "formFields": {"values": [{"fieldLabel": "Project folder", "placeholder": "ep03", "requiredField": True}, {"fieldLabel": "Episode number", "fieldType": "number", "requiredField": True},
     {"fieldLabel": "Episode title", "requiredField": True}, {"fieldLabel": "Subtitle (optional)"}, {"fieldLabel": "Outline / talking points", "fieldType": "textarea", "requiredField": True},
-    {"fieldLabel": "Next episode title"}, {"fieldLabel": "Next episode tagline"}]}, "options": {}}, 0, 0)
+    {"fieldLabel": "Next episode title"}, {"fieldLabel": "Next episode tagline"}, {"fieldLabel": "Target length in minutes (10-15, max 15)", "fieldType": "number", "placeholder": "10"}]}, "options": {}}, 0, 0)
 add("Re-run existing project", "n8n-nodes-base.manualTrigger", 1, {}, 0, 200)
 S("Existing project folder", [("Project folder", "ep02")], 220, 200, keep=False)
 S("Config", [("runner", "http://127.0.0.1:8787"), ("runnerBrowser", "http://127.0.0.1:8787"), ("token", ""), ("llmModel", "nvidia/llama-3.3-nemotron-super-49b-v1"),
@@ -87,7 +87,9 @@ ${slideDoc}
 OUTPUT SHAPE: {"narration":{"segments":[{"id":"open","chapter":"Intro","sentences":["..."]}]},"scenes":[ ...slide scenes... ],"display":[["spoken","shown"]]}
 EXAMPLE (abridged, from episode 2):
 ${example}`;
-let user = `Episode ${form['Episode number']}: ${form['Episode title']} ${form['Subtitle (optional)'] || ''}\nOutline / talking points:\n${cfg.brief}`;
+const target = Math.min(15, Math.max(5, Number(form['Target length in minutes (10-15, max 15)']) || 10));
+const budget = Math.round(target * 60 * 2.6);
+let user = `LENGTH: the finished video must run about ${target} minutes (hard maximum 15). Voice speaks ~3 words per second, so write about ${budget} narration words in total across 8-14 segments of 4-6 sentences each. Spread them evenly; each segment is one idea with a visual state change per sentence.\nEpisode ${form['Episode number']}: ${form['Episode title']} ${form['Subtitle (optional)'] || ''}\nOutline / talking points:\n${cfg.brief}`;
 if (prev) user += `\n\nYour previous answer failed validation. Fix these problems and return the full corrected JSON:\n- ` + prev.errors.join('\n- ');
 return [{json:{model: cfg.llmModel, messages:[{role:'system',content:sys},{role:'user',content:user}], errors: undefined}}];
 '''
@@ -101,7 +103,7 @@ EXAMPLE = {"narration": {"segments": [{"id": "open", "chapter": "Intro", "senten
 add("Build prompt", "n8n-nodes-base.code", 2, {"jsCode": PROMPT_JS.replace("${JSON.stringify(EXAMPLE)}", "${JSON.stringify(EXAMPLE)}").replace("const example = ${JSON.stringify(EXAMPLE)};", "const example = " + json.dumps(json.dumps(EXAMPLE)) + ";")}, 1100, 0)
 link("Project info", "Build prompt")
 add("Author (NVIDIA LLM)", "n8n-nodes-base.httpRequest", 4.2, {"method": "POST", "url": "https://integrate.api.nvidia.com/v1/chat/completions", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
-    "sendBody": True, "contentType": "raw", "rawContentType": "application/json", "body": "={{ JSON.stringify({model: $json.model, messages: $json.messages, temperature: 0.3, top_p: 0.9, max_tokens: 8000}) }}", "options": {"timeout": 300000}},
+    "sendBody": True, "contentType": "raw", "rawContentType": "application/json", "body": "={{ JSON.stringify({model: $json.model, messages: $json.messages, temperature: 0.3, top_p: 0.9, max_tokens: 12000}) }}", "options": {"timeout": 300000}},
     1320, 0, creds={"httpHeaderAuth": {"id": "", "name": "NVIDIA API (Authorization: Bearer nvapi-...)"}})
 link("Build prompt", "Author (NVIDIA LLM)")
 
@@ -160,6 +162,16 @@ if (data) {
       });
     }
   }
+}
+const tgt = Math.min(15, Math.max(5, Number(form['Target length in minutes (10-15, max 15)']) || 10));
+if (data && data.narration && Array.isArray(data.narration.segments)) {
+  const ss = data.narration.segments;
+  const w = ss.reduce((n, s) => n + (s.sentences || []).reduce((m, t) => m + t.split(/\s+/).filter(Boolean).length, 0), 0);
+  const sn = ss.reduce((n, s) => n + (s.sentences || []).length, 0);
+  const estMin = (w / 3.0 + sn * 0.32 + ss.length * 0.85 + 12) / 60;
+  if (estMin > 15) errors.push(`narration is about ${estMin.toFixed(1)} min - over the 15 minute limit, cut to about ${Math.round(tgt * 60 * 2.6)} words`);
+  else if (estMin < tgt * 0.75) errors.push(`narration is about ${estMin.toFixed(1)} min but the target is ${tgt} - add content (about ${Math.round(tgt * 60 * 2.6)} words total, ${w} now)`);
+  else if (estMin > tgt * 1.25) errors.push(`narration is about ${estMin.toFixed(1)} min but the target is ${tgt} - trim to about ${Math.round(tgt * 60 * 2.6)} words (${w} now)`);
 }
 const attempt = $runIndex + 1;
 if (errors.length) return [{json:{ok:false, errors:errors.slice(0,12), attempt}}];

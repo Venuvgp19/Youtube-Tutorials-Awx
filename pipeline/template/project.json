@@ -14,5 +14,6 @@
   "threshold": 0.9,
   "timeout_s": 240
  },
- "music": "music.mp3"
+ "music": "music.mp3",
+ "max_minutes": 15
 }
