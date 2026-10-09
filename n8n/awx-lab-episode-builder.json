@@ -353,8 +353,8 @@
       "parameters": {
         "method": "POST",
         "url": "https://integrate.api.nvidia.com/v1/chat/completions",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
@@ -372,9 +372,9 @@
         0
       ],
       "credentials": {
-        "httpHeaderAuth": {
+        "openAiApi": {
           "id": "",
-          "name": "NVIDIA API (Authorization: Bearer nvapi-...)"
+          "name": "OpenAI account"
         }
       }
     },

@@ -7,7 +7,7 @@ Two workflows (n8n -> Workflows -> Import from file):
 ## One-time setup
 1. On the PC: `python pipeline/server.py --projects "C:\Users\praka\Desktop\YTVideo\_projects"` (keep it running next to Voicebox).
 2. In n8n open **Config** and set `runner` (and `runnerBrowser`, the same URL as your browser sees it). n8n in Docker: start the server with `--host 0.0.0.0` and use `http://host.docker.internal:8787`.
-3. Create a credential **Header Auth** named `NVIDIA API`: header `Authorization`, value `Bearer nvapi-...`; select it on the node **Author (NVIDIA LLM)**. Check the model name in **Config -> llmModel** against the NVIDIA catalogue.
+3. The LLM nodes use the n8n credential **OpenAI account** (an OpenAI-type credential holding the NVIDIA key). Select it on **Author (NVIDIA LLM)** / **Spoken rewrite (NVIDIA LLM)** if n8n does not pick it automatically. Check the model name in **Config -> llmModel** against the NVIDIA catalogue.
 4. No Execute Command node is used, so nothing needs to be unblocked in n8n.
 
 ## Flow

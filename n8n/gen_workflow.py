@@ -102,9 +102,9 @@ EXAMPLE = {"narration": {"segments": [{"id": "open", "chapter": "Intro", "senten
     "display": [["thirty thousand eighty", "30080"], ["S E Linux", "SELinux"]]}
 add("Build prompt", "n8n-nodes-base.code", 2, {"jsCode": PROMPT_JS.replace("${JSON.stringify(EXAMPLE)}", "${JSON.stringify(EXAMPLE)}").replace("const example = ${JSON.stringify(EXAMPLE)};", "const example = " + json.dumps(json.dumps(EXAMPLE)) + ";")}, 1100, 0)
 link("Project info", "Build prompt")
-add("Author (NVIDIA LLM)", "n8n-nodes-base.httpRequest", 4.2, {"method": "POST", "url": "https://integrate.api.nvidia.com/v1/chat/completions", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+add("Author (NVIDIA LLM)", "n8n-nodes-base.httpRequest", 4.2, {"method": "POST", "url": "https://integrate.api.nvidia.com/v1/chat/completions", "authentication": "predefinedCredentialType", "nodeCredentialType": "openAiApi",
     "sendBody": True, "contentType": "raw", "rawContentType": "application/json", "body": "={{ JSON.stringify({model: $json.model, messages: $json.messages, temperature: 0.3, top_p: 0.9, max_tokens: 12000}) }}", "options": {"timeout": 300000}},
-    1320, 0, creds={"httpHeaderAuth": {"id": "", "name": "NVIDIA API (Authorization: Bearer nvapi-...)"}})
+    1320, 0, creds={"openAiApi": {"id": "", "name": "OpenAI account"}})
 link("Build prompt", "Author (NVIDIA LLM)")
 
 VALIDATE_JS = r'''

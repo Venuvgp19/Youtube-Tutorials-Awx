@@ -45,9 +45,9 @@ if (prev) user += `\n\nYour previous answer failed validation. Fix these problem
 return [{json:{model: cfg.llmModel, messages:[{role:'system',content:sys},{role:'user',content:user}], errors: undefined}}];
 '''
 add("Build prompt", "n8n-nodes-base.code", 2, {"jsCode": PROMPT_JS}, 1980, 0); link("Lab steps", "Build prompt")
-add("Spoken rewrite (NVIDIA LLM)", "n8n-nodes-base.httpRequest", 4.2, {"method": "POST", "url": "https://integrate.api.nvidia.com/v1/chat/completions", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+add("Spoken rewrite (NVIDIA LLM)", "n8n-nodes-base.httpRequest", 4.2, {"method": "POST", "url": "https://integrate.api.nvidia.com/v1/chat/completions", "authentication": "predefinedCredentialType", "nodeCredentialType": "openAiApi",
     "sendBody": True, "contentType": "raw", "rawContentType": "application/json", "body": "={{ JSON.stringify({model: $json.model, messages: $json.messages, temperature: 0.2, top_p: 0.9, max_tokens: 6000}) }}", "options": {"timeout": 300000}},
-    2200, 0, creds={"httpHeaderAuth": {"id": "", "name": "NVIDIA API (Authorization: Bearer nvapi-...)"}})
+    2200, 0, creds={"openAiApi": {"id": "", "name": "OpenAI account"}})
 link("Build prompt", "Spoken rewrite (NVIDIA LLM)")
 
 VALIDATE_JS = r'''
