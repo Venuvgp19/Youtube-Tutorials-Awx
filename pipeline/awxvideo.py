@@ -165,12 +165,14 @@ class EL:
         except Exception as e:
             return {"note": "quota not readable with this key (%s)" % e}
 
-    def generate(self, text, seed, dest):
+    def generate(self, text, seed, dest, prev=None, nxt=None):
         vid = self.c["voice_id"]
         model = self.c.get("model_id", "eleven_multilingual_v2")
         body = {"text": text, "model_id": model, "seed": seed,
                 "voice_settings": {"stability": self.c.get("stability", 0.5), "similarity_boost": self.c.get("similarity_boost", 0.85),
-                                   "style": self.c.get("style", 0.0), "use_speaker_boost": True}}
+                                   "style": self.c.get("style", 0.0), "use_speaker_boost": True, "speed": self.c.get("speed", 1.0)}}
+        if prev: body["previous_text"] = prev   # neighbouring sentences give the model context -> natural prosody, less robotic
+        if nxt: body["next_text"] = nxt
         r = self.r.post(f"https://api.elevenlabs.io/v1/text-to-speech/{vid}?output_format=mp3_44100_128", json=body,
                         headers={"xi-api-key": self.key}, timeout=120)
         if r.status_code >= 400:
@@ -239,7 +241,7 @@ def cmd_narrate(pr, a):
     thr = pr.cfg["voicebox"].get("threshold", 0.9)
     report, flagged = [], []
     for k, (seg, i, text) in enumerate(pr.sentences):
-        h = hashlib.sha1((("el:" + pr.cfg["elevenlabs"]["voice_id"] + "|") if use_el else "").encode() + text.encode()).hexdigest()[:10]   # engine-specific cache key
+        h = hashlib.sha1((("el:" + json.dumps(pr.cfg["elevenlabs"], sort_keys=True) + "|") if use_el else "").encode() + text.encode()).hexdigest()[:10]   # engine-specific cache key
         old = gens.get(k)
         if not (old and old.get("hash") == h):
             old = byhash.get(h)   # same sentence generated before, possibly at another position
@@ -255,7 +257,7 @@ def cmd_narrate(pr, a):
         for seed in seeds:
             tmp = os.path.join(vd, f"_tmp_{k}_{seed}.wav")
             try:
-                gid = vb.generate(text, seed, tmp)
+                gid = vb.generate(text, seed, tmp, *((pr.sentences[k - 1][2] if k else None, pr.sentences[k + 1][2] if k + 1 < len(pr.sentences) else None) if use_el else ()))
                 heard = vb.transcribe(tmp)
             except Exception as e:
                 tries.append({"seed": seed, "error": str(e)})
