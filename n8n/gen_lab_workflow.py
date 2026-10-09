@@ -28,7 +28,9 @@ add("Lab steps", "n8n-nodes-base.httpRequest", 4.2, {"url": "={{ %s.runner }}/fi
     "headerParameters": {"parameters": [{"name": "X-Token", "value": "={{ %s.token }}" % CFG}]}, "options": {}}, 1760, 0)
 link("Cut OK?", "Lab steps", 0)
 
+PLAYBOOK = open(__import__('os').path.join(__import__('os').path.dirname(__import__('os').path.abspath(__file__)),'skills','awx-episode-playbook.md'),encoding='utf-8').read()
 PROMPT_JS = r'''
+const PLAYBOOK = __PLAYBOOK__;
 const cfg = $('Config').first().json;
 const lab = $('Lab steps').first().json;
 const prev = $json.errors ? $json : null;
@@ -41,11 +43,13 @@ RULES:
 - The video shows the command being typed and running while you speak. Length per step: aim for at most about 2.2 words per second of available_s plus 10 words; if the script is longer, tighten it (the video will freeze the last frame for any overrun, so do not pad).
 - Prefer "containers" to "pods" when ambiguous (speech-to-text mishears it).
 - Also write "open": 3 sentences (hook, what we do today, what the viewer gets) and "close": 3 sentences (recap, snapshot/next-step advice from the script if any, then "All the commands are in the repo, in the epNN folder" with the number spelled out).
+HOUSE PLAYBOOK (follow it):\n${PLAYBOOK}
 OUTPUT SHAPE: {"open":["..."],"steps":{"<step id>":["..."]},"close":["..."],"display":[["spoken","shown"]]}`;
 let user = `Episode ${$('Lab episode form').first().json['Episode number']}: ${$('Lab episode form').first().json['Episode title']}\nSteps (in order):\n` + JSON.stringify(steps, null, 1);
 if (prev) user += `\n\nYour previous answer failed validation. Fix these problems and return the full corrected JSON:\n- ` + prev.errors.join('\n- ');
 return [{json:{model: cfg.llmModel, messages:[{role:'system',content:sys},{role:'user',content:user}], errors: undefined}}];
 '''
+PROMPT_JS = PROMPT_JS.replace('__PLAYBOOK__', __import__('json').dumps(PLAYBOOK))
 add("Build prompt", "n8n-nodes-base.code", 2, {"jsCode": PROMPT_JS}, 1980, 0); link("Lab steps", "Build prompt")
 add("Spoken rewrite (NVIDIA LLM)", "n8n-nodes-base.httpRequest", 4.2, {"method": "POST", "url": "https://integrate.api.nvidia.com/v1/chat/completions", "authentication": "predefinedCredentialType", "nodeCredentialType": "openAiApi",
     "sendBody": True, "contentType": "raw", "rawContentType": "application/json", "body": "={{ JSON.stringify({model: $json.model, messages: $json.messages, temperature: 0.2, top_p: 0.9, max_tokens: 32000}) }}", "options": {"timeout": 300000}},
