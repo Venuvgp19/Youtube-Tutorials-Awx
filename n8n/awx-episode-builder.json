@@ -377,6 +377,36 @@
     {
       "parameters": {
         "method": "POST",
+        "url": "={{ $('Config').first().json.runner }}/voicebox/ensure",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Token",
+              "value": "={{ $('Config').first().json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "{}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "n15",
+      "name": "Start Voicebox if down",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2100,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
         "url": "={{ $('Config').first().json.runner }}/run",
         "sendHeaders": true,
         "headerParameters": {
@@ -395,7 +425,7 @@
           "timeout": 7200000
         }
       },
-      "id": "n15",
+      "id": "n16",
       "name": "Doctor",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -427,7 +457,7 @@
         },
         "options": {}
       },
-      "id": "n16",
+      "id": "n17",
       "name": "Environment OK?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -440,7 +470,7 @@
       "parameters": {
         "errorMessage": "={{ 'Stage failed: ' + ($json.status || '') + '\\n' + ($json.log_tail || JSON.stringify($json)) }}"
       },
-      "id": "n17",
+      "id": "n18",
       "name": "Stop: pipeline failed",
       "type": "n8n-nodes-base.stopAndError",
       "typeVersion": 1,
@@ -470,7 +500,7 @@
           "timeout": 7200000
         }
       },
-      "id": "n18",
+      "id": "n19",
       "name": "Narrate (Voicebox + Whisper check)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -502,7 +532,7 @@
         },
         "options": {}
       },
-      "id": "n19",
+      "id": "n20",
       "name": "Narration clean?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -537,7 +567,7 @@
         },
         "options": {}
       },
-      "id": "n20",
+      "id": "n21",
       "name": "Review flagged lines",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
@@ -569,7 +599,7 @@
         },
         "options": {}
       },
-      "id": "n21",
+      "id": "n22",
       "name": "Accepted?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -599,7 +629,7 @@
           "timeout": 7200000
         }
       },
-      "id": "n22",
+      "id": "n23",
       "name": "Build timeline + captions",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -631,7 +661,7 @@
         },
         "options": {}
       },
-      "id": "n23",
+      "id": "n24",
       "name": "Build OK?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -661,7 +691,7 @@
           "timeout": 7200000
         }
       },
-      "id": "n24",
+      "id": "n25",
       "name": "Render slides",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -691,7 +721,7 @@
           "timeout": 7200000
         }
       },
-      "id": "n25",
+      "id": "n26",
       "name": "Preview frames",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -723,7 +753,7 @@
         },
         "options": {}
       },
-      "id": "n26",
+      "id": "n27",
       "name": "Preview OK?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -762,7 +792,7 @@
         },
         "options": {}
       },
-      "id": "n27",
+      "id": "n28",
       "name": "Approve preview",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
@@ -794,7 +824,7 @@
         },
         "options": {}
       },
-      "id": "n28",
+      "id": "n29",
       "name": "Approved?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -807,7 +837,7 @@
       "parameters": {
         "errorMessage": "={{ 'Preview rejected: ' + ($json['Notes (if rejecting)'] || 'no notes') + '. Edit scenes.json in the project folder and re-run (manual trigger).' }}"
       },
-      "id": "n29",
+      "id": "n30",
       "name": "Rejected",
       "type": "n8n-nodes-base.stopAndError",
       "typeVersion": 1,
@@ -837,7 +867,7 @@
           "timeout": 7200000
         }
       },
-      "id": "n30",
+      "id": "n31",
       "name": "Render video (long)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -869,7 +899,7 @@
         },
         "options": {}
       },
-      "id": "n31",
+      "id": "n32",
       "name": "Render OK?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -899,7 +929,7 @@
           "timeout": 7200000
         }
       },
-      "id": "n32",
+      "id": "n33",
       "name": "Mix voice + music",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -931,7 +961,7 @@
         },
         "options": {}
       },
-      "id": "n33",
+      "id": "n34",
       "name": "Mix OK?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -961,7 +991,7 @@
           "timeout": 7200000
         }
       },
-      "id": "n34",
+      "id": "n35",
       "name": "Package (srt + description)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -997,7 +1027,7 @@
         "includeOtherFields": false,
         "options": {}
       },
-      "id": "n35",
+      "id": "n36",
       "name": "Done",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
@@ -1063,7 +1093,7 @@
         ],
         [
           {
-            "node": "Doctor",
+            "node": "Start Voicebox if down",
             "type": "main",
             "index": 0
           }
@@ -1151,6 +1181,17 @@
       ]
     },
     "Write project files": {
+      "main": [
+        [
+          {
+            "node": "Start Voicebox if down",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Voicebox if down": {
       "main": [
         [
           {

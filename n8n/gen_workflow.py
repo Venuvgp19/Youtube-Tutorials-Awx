@@ -206,8 +206,10 @@ add("Write project files", "n8n-nodes-base.httpRequest", 4.2, {"method": "POST",
 link("Script valid?", "Write project files", 0)
 
 # ---------------------------------------------------------------- pipeline
+add("Start Voicebox if down", "n8n-nodes-base.httpRequest", 4.2, {"method": "POST", "url": "={{ %s.runner }}/voicebox/ensure" % CFG, "sendHeaders": True,
+    "headerParameters": {"parameters": [{"name": "X-Token", "value": "={{ %s.token }}" % CFG}]}, "sendBody": True, "contentType": "raw", "rawContentType": "application/json", "body": "{}", "options": {"timeout": 300000}}, 2100, -60)
 RUN("Doctor", "doctor", 2200, 100, voicebox=True)
-link("Has a brief?", "Doctor", 1); link("Write project files", "Doctor")
+link("Has a brief?", "Start Voicebox if down", 1); link("Write project files", "Start Voicebox if down"); link("Start Voicebox if down", "Doctor")
 IF("Environment OK?", "={{ $json.status }}", "ok", 2400, 100)
 link("Doctor", "Environment OK?")
 add("Stop: pipeline failed", "n8n-nodes-base.stopAndError", 1, {"errorMessage": "={{ 'Stage failed: ' + ($json.status || '') + '\\n' + ($json.log_tail || JSON.stringify($json)) }}"}, 2400, 700)

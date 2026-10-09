@@ -8,9 +8,10 @@
   POST /write   {"project":"ep03","files":{"narration.json":{...},"scenes.json":{...}}}   (creates the project from template/ if new)
   POST /run     {"project":"ep03","cmd":"narrate"|"build"|"slides"|"preview"|"render"|"mix"|"package"|"doctor"|"lab-plan"|"lab-build","voicebox":false}
   GET  /file?project=ep03&path=previews/sheet.jpg   (any file inside the project)
+  POST /voicebox/ensure {}   -> starts Voicebox if its server is down (Start Menu shortcut, or --voicebox-cmd) and waits until /health answers
 Headers: X-Token: <token> when --token is set.  Run commands block until finished (n8n: set a long HTTP timeout).
 """
-import argparse, json, os, re, shutil, subprocess, sys, threading
+import argparse, glob, json, os, re, shutil, subprocess, sys, threading, time, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -31,6 +32,29 @@ def safe_in(root, rel):
     if not p.startswith(os.path.abspath(root) + os.sep):
         raise ValueError("path escapes project")
     return p
+
+
+def vb_up(url):
+    try:
+        urllib.request.urlopen(url.rstrip("/") + "/health", timeout=3).read()
+        return True
+    except Exception:
+        return False
+
+
+def vb_launch():
+    """Start the Voicebox app. --voicebox-cmd wins; otherwise look for its Start Menu shortcut or an installed exe."""
+    if ARGS.voicebox_cmd:
+        subprocess.Popen(ARGS.voicebox_cmd, shell=True, creationflags=getattr(subprocess, "DETACHED_PROCESS", 0)); return ARGS.voicebox_cmd
+    roots = [os.path.expandvars(r"%APPDATA%\Microsoft\Windows\Start Menu\Programs"), os.path.expandvars(r"%ProgramData%\Microsoft\Windows\Start Menu\Programs")]
+    for r in roots:
+        for lnk in glob.glob(os.path.join(r, "**", "*oicebox*.lnk"), recursive=True):
+            os.startfile(lnk); return lnk
+    for pat in (r"%LOCALAPPDATA%\Voicebox\*.exe", r"%LOCALAPPDATA%\Programs\Voicebox\*.exe", r"%ProgramFiles%\Voicebox\*.exe", r"%ProgramFiles(x86)%\Voicebox\*.exe"):
+        for exe in glob.glob(os.path.expandvars(pat)):
+            if "unins" not in exe.lower():
+                subprocess.Popen([exe], creationflags=getattr(subprocess, "DETACHED_PROCESS", 0)); return exe
+    raise RuntimeError("Voicebox is not running and I could not find it. Start it by hand once, or restart server.py with --voicebox-cmd \"C:\\path\\to\\Voicebox.exe\"")
 
 
 class H(BaseHTTPRequestHandler):
@@ -69,6 +93,14 @@ class H(BaseHTTPRequestHandler):
         if not self.authed(): return
         try:
             body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+            if self.path == "/voicebox/ensure":
+                url = body.get("url") or ARGS.voicebox_url
+                if vb_up(url): return self.reply({"ok": True, "started": False, "url": url})
+                how = vb_launch(); t0 = time.time()
+                while time.time() - t0 < ARGS.voicebox_wait:
+                    if vb_up(url): return self.reply({"ok": True, "started": True, "via": how, "waited_s": round(time.time() - t0)})
+                    time.sleep(3)
+                raise RuntimeError("Started Voicebox (%s) but %s/health did not answer within %ds. Open the app and check it finished loading." % (how, url, ARGS.voicebox_wait))
             d = pdir(body.get("project"))
             if self.path == "/write":
                 os.makedirs(d, exist_ok=True)   # a Studio session folder may already exist: add what is missing
@@ -100,6 +132,7 @@ class H(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--projects", required=True); ap.add_argument("--host", default="127.0.0.1"); ap.add_argument("--port", type=int, default=8787); ap.add_argument("--token", default="")
+    ap.add_argument("--voicebox-cmd", default=""); ap.add_argument("--voicebox-url", default="http://127.0.0.1:17493"); ap.add_argument("--voicebox-wait", type=int, default=180)
     ARGS = ap.parse_args(); os.makedirs(ARGS.projects, exist_ok=True)
     print(f"AWX pipeline server on http://{ARGS.host}:{ARGS.port}  projects={ARGS.projects}")
     ThreadingHTTPServer((ARGS.host, ARGS.port), H).serve_forever()
