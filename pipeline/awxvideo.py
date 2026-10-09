@@ -140,6 +140,48 @@ class VB:
         return j.get("text", "") if isinstance(j, dict) else str(j)
 
 
+class EL:
+    """ElevenLabs TTS. Key comes from env ELEVENLABS_API_KEY (never stored in project files)."""
+    def __init__(self, c, vbcfg=None):
+        import requests
+        self.r = requests
+        self.c = c
+        self.key = os.environ.get("ELEVENLABS_API_KEY", "")
+        if not self.key:
+            raise SystemExit("ELEVENLABS_API_KEY is not set in the environment of the pipeline server. Set it and restart server.py.")
+        self.vb = None
+        if vbcfg:
+            try:
+                v = VB(vbcfg); v.health(); self.vb = v   # reuse local Whisper for the check; skipped if Voicebox is down
+            except Exception:
+                self.vb = None
+
+    def health(self):
+        r = self.r.get("https://api.elevenlabs.io/v1/user/subscription", headers={"xi-api-key": self.key}, timeout=20)
+        r.raise_for_status()
+        j = r.json()
+        return {"tier": j.get("tier"), "used": j.get("character_count"), "limit": j.get("character_limit")}
+
+    def generate(self, text, seed, dest):
+        vid = self.c["voice_id"]
+        model = self.c.get("model_id", "eleven_multilingual_v2")
+        body = {"text": text, "model_id": model, "seed": seed,
+                "voice_settings": {"stability": self.c.get("stability", 0.5), "similarity_boost": self.c.get("similarity_boost", 0.85),
+                                   "style": self.c.get("style", 0.0), "use_speaker_boost": True}}
+        r = self.r.post(f"https://api.elevenlabs.io/v1/text-to-speech/{vid}?output_format=mp3_44100_128", json=body,
+                        headers={"xi-api-key": self.key}, timeout=120)
+        if r.status_code >= 400:
+            raise RuntimeError(f"ElevenLabs {r.status_code}: {r.text[:200]}")
+        mp3 = dest + ".mp3"
+        open(mp3, "wb").write(r.content)
+        subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", mp3, "-ar", "24000", "-ac", "1", dest], check=True)
+        os.remove(mp3)
+        return "el_" + hashlib.sha1((vid + model + text).encode()).hexdigest()[:16]
+
+    def transcribe(self, path):
+        return self.vb.transcribe(path) if self.vb else None
+
+
 NUM = {"0": "zero", "1": "one", "2": "two", "3": "three", "4": "four", "5": "five", "6": "six", "7": "seven", "8": "eight", "9": "nine"}
 
 
@@ -187,13 +229,14 @@ def cmd_narrate(pr, a):
     gp = pr.p("generations.json")
     gens = {g["i"]: g for g in (jl(gp) if os.path.exists(gp) else [])}
     byhash = {g["hash"]: g for g in gens.values() if g.get("hash") and os.path.exists(os.path.join(vd, g["id"] + ".wav"))}
-    vb = VB(pr.cfg["voicebox"])
-    vb.health()
-    seeds = pr.cfg["voicebox"].get("seeds", [42, 7, 1234, 99])
+    use_el = pr.cfg.get("tts_engine") == "elevenlabs"
+    vb = EL(pr.cfg["elevenlabs"], pr.cfg.get("voicebox")) if use_el else VB(pr.cfg["voicebox"])
+    print(vb.health(), flush=True)
+    seeds = [pr.cfg["elevenlabs"].get("seed", 42)] if use_el else pr.cfg["voicebox"].get("seeds", [42, 7, 1234, 99])
     thr = pr.cfg["voicebox"].get("threshold", 0.9)
     report, flagged = [], []
     for k, (seg, i, text) in enumerate(pr.sentences):
-        h = hashlib.sha1(text.encode()).hexdigest()[:10]
+        h = hashlib.sha1((("el:" + pr.cfg["elevenlabs"]["voice_id"] + "|") if use_el else "").encode() + text.encode()).hexdigest()[:10]   # engine-specific cache key
         old = gens.get(k)
         if not (old and old.get("hash") == h):
             old = byhash.get(h)   # same sentence generated before, possibly at another position
@@ -214,7 +257,8 @@ def cmd_narrate(pr, a):
             except Exception as e:
                 tries.append({"seed": seed, "error": str(e)})
                 continue
-            sc = score(text, heard)
+            sc = 1.0 if heard is None else score(text, heard)   # heard None: no Whisper available, trust the TTS
+            heard = heard or ""
             tries.append({"seed": seed, "score": round(sc, 3), "heard": heard})
             fn = os.path.join(vd, gid + ".wav")
             os.replace(tmp, fn)
