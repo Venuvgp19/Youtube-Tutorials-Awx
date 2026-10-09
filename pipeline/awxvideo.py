@@ -157,10 +157,13 @@ class EL:
                 self.vb = None
 
     def health(self):
-        r = self.r.get("https://api.elevenlabs.io/v1/user/subscription", headers={"xi-api-key": self.key}, timeout=20)
-        r.raise_for_status()
-        j = r.json()
-        return {"tier": j.get("tier"), "used": j.get("character_count"), "limit": j.get("character_limit")}
+        try:   # a TTS-only key has no user_read permission: that is fine, just skip the quota line
+            r = self.r.get("https://api.elevenlabs.io/v1/user/subscription", headers={"xi-api-key": self.key}, timeout=20)
+            r.raise_for_status()
+            j = r.json()
+            return {"tier": j.get("tier"), "used": j.get("character_count"), "limit": j.get("character_limit")}
+        except Exception as e:
+            return {"note": "quota not readable with this key (%s)" % e}
 
     def generate(self, text, seed, dest):
         vid = self.c["voice_id"]
