@@ -48,7 +48,7 @@ return [{json:{model: cfg.llmModel, messages:[{role:'system',content:sys},{role:
 '''
 add("Build prompt", "n8n-nodes-base.code", 2, {"jsCode": PROMPT_JS}, 1980, 0); link("Lab steps", "Build prompt")
 add("Spoken rewrite (NVIDIA LLM)", "n8n-nodes-base.httpRequest", 4.2, {"method": "POST", "url": "https://integrate.api.nvidia.com/v1/chat/completions", "authentication": "predefinedCredentialType", "nodeCredentialType": "openAiApi",
-    "sendBody": True, "contentType": "raw", "rawContentType": "application/json", "body": "={{ JSON.stringify({model: $json.model, messages: $json.messages, temperature: 0.2, top_p: 0.9, max_tokens: 6000}) }}", "options": {"timeout": 300000}},
+    "sendBody": True, "contentType": "raw", "rawContentType": "application/json", "body": "={{ JSON.stringify({model: $json.model, messages: $json.messages, temperature: 0.2, top_p: 0.9, max_tokens: 32000}) }}", "options": {"timeout": 300000}},
     2200, 0, creds={"openAiApi": {"id": "", "name": "OpenAI account"}})
 link("Build prompt", "Spoken rewrite (NVIDIA LLM)")
 
@@ -61,6 +61,10 @@ const errors = [];
 let data = null;
 try { const m = raw.match(/\{[\s\S]*\}/); data = JSON.parse(m ? m[0] : raw); } catch (e) { errors.push('Output is not valid JSON: ' + e.message); }
 const words = t => t.split(/\s+/).filter(Boolean).length;
+const ONES = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'], TENS = ['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
+const small = n => n < 20 ? ONES[n] : n < 100 ? TENS[Math.floor(n/10)] + (n % 10 ? ' ' + ONES[n % 10] : '') : ONES[Math.floor(n/100)] + ' hundred' + (n % 100 ? ' ' + small(n % 100) : '');
+const spell = t => t.replace(/k3s/gi, 'K three S').replace(/(\d)\.(?=\d)/g, '$1 point ').replace(/\d+/g, d => d.length <= 3 && !/^0\d/.test(d) ? small(Number(d)) : d.split('').map(c => ONES[Number(c)]).join(' '));
+const fixAll = a => Array.isArray(a) ? a.map(t => typeof t === 'string' ? spell(t) : t) : a;
 const check = (label, arr, min) => {
   if (!Array.isArray(arr) || arr.length < min) { errors.push(`${label}: needs ${min}+ sentences`); return; }
   arr.forEach((t, i) => {
@@ -70,6 +74,7 @@ const check = (label, arr, min) => {
   });
 };
 if (data) {
+  data.open = fixAll(data.open); data.close = fixAll(data.close); if (data.steps) for (const k in data.steps) data.steps[k] = fixAll(data.steps[k]);
   check('open', data.open, 2); check('close', data.close, 2);
   lab.steps.filter(s => (s.say || '').trim()).forEach(s => {
     const arr = data.steps?.[s.id];
