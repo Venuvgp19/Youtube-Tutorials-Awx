@@ -8,10 +8,10 @@
   POST /write   {"project":"ep03","files":{"narration.json":{...},"scenes.json":{...}}}   (creates the project from template/ if new)
   POST /run     {"project":"ep03","cmd":"narrate"|"build"|"slides"|"preview"|"render"|"mix"|"package"|"doctor"|"lab-plan"|"lab-build","voicebox":false}
   GET  /file?project=ep03&path=previews/sheet.jpg   (any file inside the project)
-  POST /voicebox/ensure {}   -> starts Voicebox if its server is down (Start Menu shortcut, or --voicebox-cmd) and waits until /health answers
+  POST /voicebox/ensure {}   -> starts Voicebox if its server is down (uvicorn from --voicebox-dir, default ~\\.gemini\\antigravity\\scratch\\voicebox, or --voicebox-cmd) and waits until /health answers
 Headers: X-Token: <token> when --token is set.  Run commands block until finished (n8n: set a long HTTP timeout).
 """
-import argparse, glob, json, os, re, shutil, subprocess, sys, threading, time, urllib.request
+import argparse, json, os, re, shutil, subprocess, sys, threading, time, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -43,18 +43,22 @@ def vb_up(url):
 
 
 def vb_launch():
-    """Start the Voicebox app. --voicebox-cmd wins; otherwise look for its Start Menu shortcut or an installed exe."""
+    """Start the Voicebox backend the same way the research workflow does: <voicebox dir>\\backend\\.venv\\Scripts\\python.exe -m uvicorn backend.main:app --port 17493.
+    --voicebox-cmd overrides everything (any shell command)."""
+    flags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NO_WINDOW", 0)
     if ARGS.voicebox_cmd:
-        subprocess.Popen(ARGS.voicebox_cmd, shell=True, creationflags=getattr(subprocess, "DETACHED_PROCESS", 0)); return ARGS.voicebox_cmd
-    roots = [os.path.expandvars(r"%APPDATA%\Microsoft\Windows\Start Menu\Programs"), os.path.expandvars(r"%ProgramData%\Microsoft\Windows\Start Menu\Programs")]
-    for r in roots:
-        for lnk in glob.glob(os.path.join(r, "**", "*oicebox*.lnk"), recursive=True):
-            os.startfile(lnk); return lnk
-    for pat in (r"%LOCALAPPDATA%\Voicebox\*.exe", r"%LOCALAPPDATA%\Programs\Voicebox\*.exe", r"%ProgramFiles%\Voicebox\*.exe", r"%ProgramFiles(x86)%\Voicebox\*.exe"):
-        for exe in glob.glob(os.path.expandvars(pat)):
-            if "unins" not in exe.lower():
-                subprocess.Popen([exe], creationflags=getattr(subprocess, "DETACHED_PROCESS", 0)); return exe
-    raise RuntimeError("Voicebox is not running and I could not find it. Start it by hand once, or restart server.py with --voicebox-cmd \"C:\\path\\to\\Voicebox.exe\"")
+        subprocess.Popen(ARGS.voicebox_cmd, shell=True, creationflags=flags); return ARGS.voicebox_cmd
+    vb = ARGS.voicebox_dir
+    py = os.path.join(vb, "backend", ".venv", "Scripts", "python.exe")
+    if not os.path.exists(py):
+        raise RuntimeError("Voicebox is not running and %s was not found. Start it by hand once, or restart server.py with --voicebox-dir <folder> or --voicebox-cmd \"<command>\"" % py)
+    port = ARGS.voicebox_url.rsplit(":", 1)[-1].strip("/")
+    env = dict(os.environ, PYTHONUNBUFFERED="1", PYTHONIOENCODING="utf-8")
+    env.setdefault("HF_HOME", os.path.join(os.path.expanduser("~"), ".cache", "huggingface"))
+    os.makedirs(os.path.join(vb, "data"), exist_ok=True)
+    log = open(os.path.join(vb, "data", "awx_runner_voicebox.log"), "ab")
+    subprocess.Popen([py, "-m", "uvicorn", "backend.main:app", "--port", port], cwd=vb, env=env, stdout=log, stderr=log, stdin=subprocess.DEVNULL, creationflags=flags)
+    return "uvicorn in " + vb
 
 
 class H(BaseHTTPRequestHandler):
@@ -132,7 +136,7 @@ class H(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--projects", required=True); ap.add_argument("--host", default="127.0.0.1"); ap.add_argument("--port", type=int, default=8787); ap.add_argument("--token", default="")
-    ap.add_argument("--voicebox-cmd", default=""); ap.add_argument("--voicebox-url", default="http://127.0.0.1:17493"); ap.add_argument("--voicebox-wait", type=int, default=180)
+    ap.add_argument("--voicebox-cmd", default=""); ap.add_argument("--voicebox-dir", default=os.path.join(os.path.expanduser("~"), ".gemini", "antigravity", "scratch", "voicebox")); ap.add_argument("--voicebox-url", default="http://127.0.0.1:17493"); ap.add_argument("--voicebox-wait", type=int, default=180)
     ARGS = ap.parse_args(); os.makedirs(ARGS.projects, exist_ok=True)
     print(f"AWX pipeline server on http://{ARGS.host}:{ARGS.port}  projects={ARGS.projects}")
     ThreadingHTTPServer((ARGS.host, ARGS.port), H).serve_forever()
