@@ -8,7 +8,7 @@ add("Notes", "n8n-nodes-base.stickyNote", 1, {"content": "## AWX LAB episode bui
 add("Lab episode form", "n8n-nodes-base.formTrigger", 2.2, {"path": "awx-lab-episode", "formTitle": "AWX from Zero - lab episode (Studio recording)", "formDescription": "Save the Studio session folder (recording.webm, session.json, ...) into your _projects folder first, then give its folder name.",
     "formFields": {"values": [{"fieldLabel": "Session folder name", "placeholder": "ep02-awx-install-2026-10-09", "requiredField": True}, {"fieldLabel": "Episode number", "fieldType": "number", "requiredField": True},
     {"fieldLabel": "Episode title", "requiredField": True}, {"fieldLabel": "Subtitle (optional)"}, {"fieldLabel": "Next episode title"}, {"fieldLabel": "Next episode tagline"}]}, "options": {}}, 0, 0)
-S("Config", [("runner", "http://127.0.0.1:8787"), ("runnerBrowser", "http://127.0.0.1:8787"), ("token", ""), ("llmModel", "nvidia/llama-3.3-nemotron-super-49b-v1"), ("project", "={{ $json['Session folder name'] }}")], 220, 0)
+S("Config", [("runner", "http://127.0.0.1:8787"), ("runnerBrowser", "http://127.0.0.1:8787"), ("token", ""), ("llmModel", "meta/llama-3.3-70b-instruct"), ("project", "={{ $json['Session folder name'] }}")], 220, 0)
 link("Lab episode form", "Config")
 add("Project info", "n8n-nodes-base.httpRequest", 4.2, {"url": "={{ %s.runner }}/project?name={{ encodeURIComponent(%s.project) }}" % (CFG, CFG), "sendHeaders": True,
     "headerParameters": {"parameters": [{"name": "X-Token", "value": "={{ %s.token }}" % CFG}]}, "options": {}}, 440, 0)

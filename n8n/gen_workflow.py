@@ -48,7 +48,7 @@ add("New episode brief", "n8n-nodes-base.formTrigger", 2.2, {"path": "awx-episod
     {"fieldLabel": "Next episode title"}, {"fieldLabel": "Next episode tagline"}, {"fieldLabel": "Target length in minutes (10-15, max 15)", "fieldType": "number", "placeholder": "10"}]}, "options": {}}, 0, 0)
 add("Re-run existing project", "n8n-nodes-base.manualTrigger", 1, {}, 0, 200)
 S("Existing project folder", [("Project folder", "ep02")], 220, 200, keep=False)
-S("Config", [("runner", "http://127.0.0.1:8787"), ("runnerBrowser", "http://127.0.0.1:8787"), ("token", ""), ("llmModel", "nvidia/llama-3.3-nemotron-super-49b-v1"),
+S("Config", [("runner", "http://127.0.0.1:8787"), ("runnerBrowser", "http://127.0.0.1:8787"), ("token", ""), ("llmModel", "meta/llama-3.3-70b-instruct"),
     ("project", "={{ $json['Project folder'] }}"), ("brief", "={{ $json['Outline / talking points'] || '' }}")], 440, 100)
 link("New episode brief", "Config"); link("Re-run existing project", "Existing project folder"); link("Existing project folder", "Config")
 IF("Has a brief?", "={{ $json.brief }}", "", 660, 100, op="notEmpty")
