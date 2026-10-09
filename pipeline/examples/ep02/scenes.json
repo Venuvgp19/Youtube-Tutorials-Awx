@@ -1,0 +1,727 @@
+{
+ "episode": {
+  "series": "AWX from Zero",
+  "number": 2,
+  "title": "Install AWX on k3s",
+  "subtitle": "with the AWX Operator",
+  "channel": "Venu Automates",
+  "handle": "@VenAutomates",
+  "folder": "ep02",
+  "repo": "github.com/Venuvgp19/Youtube-Tutorials-Awx",
+  "next": {
+   "title": "The 8 building blocks of AWX",
+   "sub": "so every screen in the UI makes sense"
+  },
+  "end_at": {
+   "seg": "close",
+   "i": 2,
+   "off": -0.1
+  },
+  "chapter_pills": [
+   "vm",
+   "k3s",
+   "op",
+   "pods",
+   "login",
+   "traps"
+  ],
+  "browser_url_base": "192.168.100.102:30080/#/",
+  "description": "Install AWX 24.6.1 on k3s with the AWX Operator, step by step, with the three traps that cost me a night.",
+  "output_name": "AWX from Zero - Ep 02 - Install AWX on k3s"
+ },
+ "gaps": {
+  "lead": 0.7,
+  "sentence": 0.32,
+  "segment": 0.85,
+  "tail": 5.0,
+  "after_seg": {
+   "open": 1.0
+  },
+  "extra": [
+   {
+    "seg": "k3s",
+    "i": 2,
+    "s": 1.0
+   }
+  ]
+ },
+ "display": [
+  [
+   "twenty four point six point one",
+   "24.6.1"
+  ],
+  [
+   "July twenty twenty four",
+   "July 2024"
+  ],
+  [
+   "twenty twenty six",
+   "2026"
+  ],
+  [
+   "role based",
+   "role-based"
+  ],
+  [
+   "Event Driven",
+   "Event-Driven"
+  ],
+  [
+   "community run",
+   "community-run"
+  ],
+  [
+   "self service",
+   "self-service"
+  ],
+  [
+   "open source",
+   "open-source"
+  ],
+  [
+   "one to one",
+   "one-to-one"
+  ],
+  [
+   "K3s",
+   "k3s"
+  ],
+  [
+   "K three S",
+   "k3s"
+  ],
+  [
+   "ep zero two",
+   "ep02"
+  ],
+  [
+   "two point nineteen point one",
+   "2.19.1"
+  ],
+  [
+   "thirty thousand eighty",
+   "30080"
+  ],
+  [
+   "sixty four forty three",
+   "6443"
+  ],
+  [
+   "kube rbac proxy",
+   "kube-rbac-proxy"
+  ],
+  [
+   "S E Linux",
+   "SELinux"
+  ],
+  [
+   "kube control",
+   "kubectl"
+  ],
+  [
+   "N A T",
+   "NAT"
+  ],
+  [
+   "three zero zero eight zero",
+   "30080"
+  ],
+  [
+   "six four four three",
+   "6443"
+  ],
+  [
+   "C R I C T L, R M I",
+   "crictl rmi"
+  ]
+ ],
+ "scenes": [
+  {
+   "id": "vm",
+   "label": "STEP 1",
+   "title": "The virtual machine",
+   "states": [
+    {
+     "i": 1,
+     "frac": 0,
+     "off": 0
+    },
+    {
+     "i": 2,
+     "frac": 0,
+     "off": 0
+    }
+   ],
+   "elements": [
+    {
+     "type": "tiles",
+     "glow": [
+      0
+     ],
+     "items": [
+      {
+       "big": "4",
+       "small": "vCPU"
+      },
+      {
+       "big": "8 GB",
+       "small": "RAM"
+      },
+      {
+       "big": "60 GB",
+       "small": "disk"
+      }
+     ],
+     "h": 190
+    },
+    {
+     "type": "tiles",
+     "cols": 2,
+     "h": 140,
+     "bs": 48,
+     "from": 1,
+     "glow": [
+      1
+     ],
+     "items": [
+      {
+       "big": "NIC 1",
+       "small": "host-only · your PC reaches AWX"
+      },
+      {
+       "big": "NIC 2",
+       "small": "NAT · internet access"
+      }
+     ]
+    },
+    {
+     "type": "note",
+     "from": 2,
+     "red": true,
+     "title": "Windows host: hypervisor OFF",
+     "mono_sub": "bcdedit /set hypervisorlaunchtype off  ·  then reboot",
+     "sub": "On = Hyper-V mode (green turtle icon) = guest crashes"
+    }
+   ]
+  },
+  {
+   "id": "check",
+   "label": "STEP 2",
+   "title": "Check the machine",
+   "states": [
+    {
+     "i": 1,
+     "frac": 0,
+     "off": 0
+    },
+    {
+     "i": 2,
+     "frac": 0,
+     "off": 0
+    }
+   ],
+   "elements": [
+    {
+     "type": "term",
+     "lines": [
+      "$ free -m; nproc; df -h /; getenforce"
+     ],
+     "hl": {
+      "0": [
+       0
+      ]
+     }
+    },
+    {
+     "type": "tiles",
+     "from": 1,
+     "glow": [
+      1
+     ],
+     "h": 220,
+     "items": [
+      {
+       "big": "2",
+       "small": "CPUs minimum"
+      },
+      {
+       "big": "4 GB",
+       "small": "free RAM"
+      },
+      {
+       "big": "15 GB",
+       "small": "free disk on /"
+      }
+     ]
+    },
+    {
+     "type": "pill",
+     "from": 2,
+     "text": "Read your own numbers out loud"
+    }
+   ]
+  },
+  {
+   "id": "fw",
+   "label": "STEP 3",
+   "title": "Firewall and SELinux",
+   "states": [
+    {
+     "i": 1,
+     "frac": 0,
+     "off": 0
+    },
+    {
+     "i": 2,
+     "frac": 0,
+     "off": 0
+    },
+    {
+     "i": 3,
+     "frac": 0,
+     "off": 0
+    }
+   ],
+   "elements": [
+    {
+     "type": "tiles",
+     "cols": 2,
+     "h": 200,
+     "bs": 56,
+     "items": [
+      {
+       "big": "6443",
+       "small": "Kubernetes API",
+       "from": 1,
+       "glow_at": [
+        1
+       ]
+      },
+      {
+       "big": "30080",
+       "small": "where AWX listens",
+       "from": 1,
+       "glow_at": [
+        1
+       ]
+      },
+      {
+       "big": "10.42.0.0/16",
+       "small": "pod network",
+       "from": 2,
+       "glow_at": [
+        2
+       ]
+      },
+      {
+       "big": "10.43.0.0/16",
+       "small": "service network",
+       "from": 2,
+       "glow_at": [
+        2
+       ]
+      }
+     ]
+    },
+    {
+     "type": "note",
+     "from": 3,
+     "title": "SELinux → permissive",
+     "sub": "lab shortcut · production uses the k3s SELinux policy"
+    }
+   ]
+  },
+  {
+   "id": "k3s",
+   "label": "STEP 4",
+   "title": "Install k3s",
+   "states": [
+    {
+     "i": 1,
+     "frac": 0.05,
+     "off": 0
+    },
+    {
+     "i": 1,
+     "frac": 0.55,
+     "off": 0
+    },
+    {
+     "i": 2,
+     "frac": 0,
+     "off": 0
+    }
+   ],
+   "elements": [
+    {
+     "type": "term",
+     "lines": [
+      "$ curl -sfL https://get.k3s.io | \\",
+      "    INSTALL_K3S_SELINUX_WARN=true \\",
+      "    INSTALL_K3S_SKIP_SELINUX_RPM=true \\",
+      "    sh -s - --write-kubeconfig-mode 644"
+     ],
+     "hl": {
+      "1": [
+       1,
+       2
+      ],
+      "2": [
+       3
+      ]
+     }
+    },
+    {
+     "type": "pill",
+     "from": 1,
+     "to": 2,
+     "text": "Skip the SELinux package"
+    },
+    {
+     "type": "pill",
+     "from": 2,
+     "to": 3,
+     "text": "Make the kubeconfig readable"
+    },
+    {
+     "type": "term",
+     "from": 3,
+     "lines": [
+      "$ k3s kubectl get nodes"
+     ],
+     "hl": {
+      "3": [
+       0
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "op",
+   "label": "STEP 5",
+   "title": "The AWX Operator",
+   "states": [
+    {
+     "i": 1,
+     "frac": 0,
+     "off": 0
+    },
+    {
+     "i": 2,
+     "frac": 0,
+     "off": 0
+    },
+    {
+     "i": 3,
+     "frac": 0,
+     "off": 0
+    }
+   ],
+   "elements": [
+    {
+     "type": "term",
+     "title": "kustomization.yaml",
+     "size": 28,
+     "lines": [
+      "resources:",
+      "- github.com/ansible/awx-operator/config/default?ref=2.19.1",
+      "images:",
+      "- name: quay.io/ansible/awx-operator",
+      "  newTag: 2.19.1",
+      "- name: gcr.io/kubebuilder/kube-rbac-proxy",
+      "  newName: quay.io/brancz/kube-rbac-proxy",
+      "  newTag: v0.15.0",
+      "namespace: awx"
+     ],
+     "hl": {
+      "1": [
+       1,
+       4
+      ],
+      "2": [
+       5,
+       6,
+       7
+      ]
+     }
+    },
+    {
+     "type": "pill",
+     "from": 2,
+     "to": 3,
+     "red": true,
+     "text": "Trap #1: the old gcr.io image is gone"
+    },
+    {
+     "type": "term",
+     "from": 3,
+     "lines": [
+      "$ k3s kubectl apply -k ."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "awx",
+   "label": "STEP 6",
+   "title": "The AWX instance",
+   "states": [
+    {
+     "i": 1,
+     "frac": 0,
+     "off": 0
+    }
+   ],
+   "elements": [
+    {
+     "type": "term",
+     "title": "awx.yaml",
+     "lines": [
+      "apiVersion: awx.ansible.com/v1beta1",
+      "kind: AWX",
+      "metadata:",
+      "  name: awx",
+      "spec:",
+      "  service_type: nodeport",
+      "  nodeport_port: 30080"
+     ],
+     "hl": {
+      "0": [
+       5,
+       6
+      ]
+     }
+    },
+    {
+     "type": "term",
+     "from": 1,
+     "lines": [
+      "$ k3s kubectl apply -n awx -f awx.yaml"
+     ],
+     "hl": {
+      "1": [
+       0
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "pods",
+   "label": "STEP 7",
+   "title": "Watch the pods come up",
+   "states": [
+    {
+     "i": 0,
+     "frac": 0.62,
+     "off": 0
+    },
+    {
+     "i": 1,
+     "frac": 0,
+     "off": 0
+    },
+    {
+     "i": 2,
+     "frac": 0,
+     "off": 0
+    },
+    {
+     "i": 3,
+     "frac": 0,
+     "off": 0
+    },
+    {
+     "i": 4,
+     "frac": 0.2,
+     "off": 0
+    }
+   ],
+   "elements": [
+    {
+     "type": "cards",
+     "items": [
+      {
+       "title": "awx-postgres-15-0",
+       "sub": "the database",
+       "mono": true
+      },
+      {
+       "title": "awx-web",
+       "sub": "UI and API",
+       "mono": true
+      },
+      {
+       "title": "awx-migration-24.6.1",
+       "sub": "builds the schema",
+       "mono": true
+      },
+      {
+       "title": "awx-task",
+       "sub": "runs your jobs",
+       "mono": true
+      }
+     ]
+    },
+    {
+     "type": "pill",
+     "from": 5,
+     "text": "About 10 minutes, mostly image downloads"
+    }
+   ]
+  },
+  {
+   "id": "login",
+   "label": "STEP 8",
+   "title": "Log in",
+   "states": [
+    {
+     "i": 1,
+     "frac": 0,
+     "off": 0
+    }
+   ],
+   "extra_states": 1,
+   "elements": [
+    {
+     "type": "term",
+     "size": 28,
+     "lines": [
+      "$ k3s kubectl -n awx get secret awx-admin-password \\",
+      "    -o jsonpath='{.data.password}' | base64 -d; echo"
+     ],
+     "hl": {
+      "0": [
+       0,
+       1
+      ]
+     }
+    },
+    {
+     "type": "note",
+     "from": 1,
+     "title": "http://<VM IP>:30080",
+     "sub": "user: admin  ·  password: from the command above"
+    },
+    {
+     "type": "pill",
+     "from": 2,
+     "text": "Change the password: user menu → Edit"
+    }
+   ]
+  },
+  {
+   "id": "dash",
+   "kind": "browser",
+   "seg": "login",
+   "image": "dash.jpg",
+   "url": "home",
+   "start": {
+    "seg": "login",
+    "i": 1,
+    "frac": 0.62
+   },
+   "camera": [
+    {
+     "at": {
+      "seg": "login",
+      "i": 1,
+      "frac": 0.62
+     },
+     "dur": 0.01,
+     "rect": [
+      0,
+      0,
+      1920,
+      1080
+     ]
+    }
+   ]
+  },
+  {
+   "id": "login_b",
+   "kind": "slide_ref",
+   "ref": "login",
+   "state": 2,
+   "start": {
+    "seg": "login",
+    "i": 2,
+    "off": -0.1
+   }
+  },
+  {
+   "id": "traps",
+   "label": "THE THREE TRAPS",
+   "title": "What cost me a night",
+   "states": [
+    {
+     "i": 0,
+     "frac": 0.25,
+     "off": 0
+    },
+    {
+     "i": 1,
+     "frac": 0,
+     "off": 0
+    },
+    {
+     "i": 2,
+     "frac": 0,
+     "off": 0
+    }
+   ],
+   "elements": [
+    {
+     "type": "cards",
+     "h": 170,
+     "stacked": true,
+     "items": [
+      {
+       "title": "Hyper-V mode crashes the VM",
+       "sub": "Turn the Windows hypervisor off, reboot Windows"
+      },
+      {
+       "title": "The old gcr.io image is gone",
+       "sub": "Use the images override in kustomization.yaml"
+      },
+      {
+       "title": "A crash corrupts pulled images",
+       "sub": "k3s crictl rmi <image>, then let it pull again"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "close_dash",
+   "kind": "browser",
+   "seg": "close",
+   "image": "dash.jpg",
+   "url": "home",
+   "camera": [
+    {
+     "at": {
+      "seg": "close",
+      "off": -0.2
+     },
+     "dur": 0.01,
+     "rect": [
+      306,
+      84,
+      1150,
+      560
+     ]
+    },
+    {
+     "at": {
+      "seg": "close",
+      "i": 0,
+      "frac": 0.3
+     },
+     "dur": 3.0
+    }
+   ]
+  }
+ ]
+}

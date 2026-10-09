@@ -1,0 +1,109 @@
+{
+ "segments": [
+  {
+   "id": "open",
+   "chapter": "Intro",
+   "sentences": [
+    "Today we install AWX the way the project recommends: with the AWX Operator on Kubernetes.",
+    "We'll use K three S, a one-command Kubernetes, on a single virtual machine.",
+    "By the end, you'll log in to your own AWX.",
+    "And I'll show you three problems I hit, so you don't lose a night to them."
+   ]
+  },
+  {
+   "id": "vm",
+   "chapter": "The VM",
+   "sentences": [
+    "First, the virtual machine. In VirtualBox I give it four CPUs, eight gigabytes of RAM, and a sixty gigabyte disk.",
+    "Network adapter one is host-only, so your PC can reach AWX. Adapter two uses network address translation, for internet access.",
+    "One thing on Windows: turn the Windows hypervisor off first.",
+    "With it on, VirtualBox runs in Hyper-V mode, you'll see a green turtle icon, and my guest crashed."
+   ]
+  },
+  {
+   "id": "check",
+   "chapter": "Check the machine",
+   "sentences": [
+    "Now log in as root and check the machine.",
+    "The minimums are two CPUs, four gigabytes of free memory, and fifteen gigabytes of free disk.",
+    "Read your own numbers out loud before you go on."
+   ]
+  },
+  {
+   "id": "fw",
+   "chapter": "Firewall and SELinux",
+   "sentences": [
+    "Next, the firewall and S E Linux, if they're turned on.",
+    "The Kubernetes API uses port six four four three. AWX itself will listen on port three zero zero eight zero.",
+    "The two ten-dot ranges are the pod and service networks.",
+    "Permissive S E Linux is a lab shortcut. In production, you'd use the K three S S E Linux policy instead."
+   ]
+  },
+  {
+   "id": "k3s",
+   "chapter": "Install K3s",
+   "sentences": [
+    "Now K three S. It's a full Kubernetes in one binary, installed with one command.",
+    "Two flags matter: one skips the S E Linux package, and one makes the Kubernetes config file readable.",
+    "Then we wait until the node shows Ready."
+   ]
+  },
+  {
+   "id": "op",
+   "chapter": "The AWX Operator",
+   "sentences": [
+    "Next, the AWX Operator. An operator is a controller that installs AWX from a short YAML file, and keeps it healthy.",
+    "Our kustomize file pulls AWX Operator version two point nineteen point one.",
+    "Look at the last block. It replaces the proxy image. The old copy is gone, and without this line the operator never starts. That's the first of the three traps.",
+    "Then we apply it with kube control apply, dash k."
+   ]
+  },
+  {
+   "id": "awx",
+   "chapter": "The AWX instance",
+   "sentences": [
+    "Now AWX itself. A few short lines describe the whole thing: a name, and the port it listens on, three zero zero eight zero.",
+    "Apply it, and the operator does the rest."
+   ]
+  },
+  {
+   "id": "pods",
+   "chapter": "Watch the pods",
+   "sentences": [
+    "Now watch the containers come up one by one. Postgres is the database.",
+    "Web is the UI and the API.",
+    "The migration step builds the database schema.",
+    "Last, the task pod. It's the one that runs your jobs.",
+    "This takes about ten minutes, mostly image downloads, so go get a coffee."
+   ]
+  },
+  {
+   "id": "login",
+   "chapter": "Log in",
+   "sentences": [
+    "When it's ready, one command prints the admin password.",
+    "Open your browser at your VM's IP address, port three zero zero eight zero, and log in as admin.",
+    "Then change the password right away, from the user menu, under Edit."
+   ]
+  },
+  {
+   "id": "traps",
+   "chapter": "The three traps",
+   "sentences": [
+    "Now, the three traps. One: Hyper-V mode crashes the VM. Turn the Windows hypervisor off, and reboot.",
+    "Two: the old registry image is gone. Swap in a new one in the kustomize file.",
+    "Three: a crash can corrupt downloaded images. Remove the image with C R I C T L, R M I, then let it pull again."
+   ]
+  },
+  {
+   "id": "close",
+   "chapter": "Wrap up",
+   "sentences": [
+    "That's a working AWX on K three S.",
+    "Take a snapshot of your VM now, because we'll reuse this lab in every episode.",
+    "Next time: the eight building blocks of AWX, so every screen in this UI makes sense.",
+    "All the commands are in the repo, in the ep zero two folder."
+   ]
+  }
+ ]
+}

@@ -1,0 +1,18 @@
+{
+ "voicebox": {
+  "url": "http://127.0.0.1:17493",
+  "profile": "Venu",
+  "model_size": "0.6B",
+  "engine": "qwen",
+  "language": "en",
+  "seeds": [
+   42,
+   7,
+   1234,
+   99
+  ],
+  "threshold": 0.9,
+  "timeout_s": 240
+ },
+ "music": "music.mp3"
+}
