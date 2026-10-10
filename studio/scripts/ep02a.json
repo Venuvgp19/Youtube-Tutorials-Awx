@@ -1,0 +1,115 @@
+{
+ "schema": "awx-script/1",
+ "episode": "2a",
+ "slug": "ep02a-build-the-lab-vm",
+ "title": "Build the AWX lab VM from zero (VirtualBox + CentOS Stream 10)",
+ "target_minutes": "15-20 raw (pause Studio during downloads and the OS install), about 8-9 after cuts",
+ "preflight": [
+  "Free disk: at least 80 GB. CPU virtualization (VT-x / AMD-V) enabled in BIOS",
+  "Windows hypervisor handled as in Step 'hypervisor' (record it, do not skip)",
+  "Download the CentOS Stream 10 boot or DVD ISO BEFORE recording and pause Studio for any long wait. Show only the page and the click",
+  "Clean desktop, plain wallpaper, no personal tabs. Terminal and VirtualBox font large (18 pt+)",
+  "Record in SILENT mode, narration is added later. Press Pause in Studio for every wait (download, install, reboot)"
+ ],
+ "steps": [
+  {
+   "id": "open",
+   "title": "Open",
+   "chapter": "Intro",
+   "show": "Title card, then VirtualBox Manager with an empty VM list.",
+   "cmd": [],
+   "say": "This is the lab VM for the whole series. If you already have a Linux VM with four CPUs, eight gigabytes of RAM and sixty gigabytes of disk, skip to episode two. If not, we build it together, from nothing, in about ten minutes.",
+   "sub": "Lab VM from zero"
+  },
+  {
+   "id": "hypervisor",
+   "title": "Windows hypervisor",
+   "chapter": "Before you start",
+   "show": "PowerShell as Administrator on Windows.",
+   "cmd": [
+    "bcdedit /enum | findstr hypervisorlaunchtype",
+    "bcdedit /set hypervisorlaunchtype off"
+   ],
+   "say": "On Windows, turn the hypervisor off first, in an administrator PowerShell, then reboot. Otherwise VirtualBox runs in Hyper-V mode, you see a green turtle in the corner, and the guest can crash later.",
+   "sub": "Hypervisor off, then reboot"
+  },
+  {
+   "id": "vbox",
+   "title": "Install VirtualBox",
+   "chapter": "VirtualBox",
+   "show": "virtualbox.org Downloads page, pick your host OS, run the installer with defaults, open VirtualBox Manager.",
+   "cmd": [],
+   "say": "Download VirtualBox from virtualbox.org, pick your operating system, and install it with the defaults. Open VirtualBox Manager. This is the free program that runs our virtual machine.",
+   "sub": "virtualbox.org | defaults"
+  },
+  {
+   "id": "iso",
+   "title": "Get the Linux ISO",
+   "chapter": "CentOS Stream 10",
+   "show": "centos.org download page, CentOS Stream 10, x86_64 ISO (boot ISO is smaller, DVD ISO works offline). Show the downloaded file.",
+   "cmd": [],
+   "say": "Next, the operating system. We use CentOS Stream 10, a free Red Hat style Linux. Download the x86 sixty-four ISO from centos.org. The boot ISO is smaller, but it downloads packages during the install.",
+   "sub": "CentOS Stream 10 ISO"
+  },
+  {
+   "id": "create",
+   "title": "Create the VM",
+   "chapter": "Create the VM",
+   "show": "VirtualBox > New. Name awx-lab, Type Linux, Version Red Hat 64-bit, select the ISO, tick Skip Unattended Installation. Hardware: 8192 MB RAM, 4 CPUs. Disk: 60 GB, dynamically allocated.",
+   "cmd": [],
+   "say": "Click New. Name it awx-lab, type Linux, version Red Hat sixty-four bit, and pick the ISO. Tick skip unattended installation so we see every step. Give it eight gigabytes of memory, four CPUs and a sixty gigabyte disk. Dynamic disk means it only uses space as it fills.",
+   "sub": "4 CPU | 8 GB | 60 GB"
+  },
+  {
+   "id": "network",
+   "title": "Two network adapters",
+   "chapter": "Networking",
+   "show": "VM Settings > Network. Adapter 1: Host-only Adapter. Adapter 2: NAT. OK.",
+   "cmd": [],
+   "say": "Open the VM settings, then Network. Adapter one is host-only, so your PC can reach AWX in the browser later. Adapter two is NAT, so the VM can reach the internet to download things. We need both.",
+   "sub": "Adapter 1 host-only | 2 NAT"
+  },
+  {
+   "id": "install",
+   "title": "Install CentOS",
+   "chapter": "Install the OS",
+   "show": "Start the VM. Installer: language English, Installation Destination (auto, select the disk, Done), Network and Host Name (turn both adapters On, hostname awx-lab), Root password and a user, Begin Installation. Pause Studio during the install, resume at Reboot.",
+   "cmd": [],
+   "say": "Start the VM and pick the language. For the destination, select the disk and accept automatic partitioning. In network settings turn both adapters on and set the host name. Set a root password, then begin. The install takes a few minutes, so I skip ahead and reboot when it finishes.",
+   "sub": "Disk | network on | root password"
+  },
+  {
+   "id": "login",
+   "title": "First boot",
+   "chapter": "First boot",
+   "show": "VM console after reboot, login as root. Run the commands. Optionally switch the terminal to SSH from the host to show it is reachable.",
+   "cmd": [
+    "ip -br a",
+    "nproc",
+    "free -h",
+    "df -h /",
+    "dnf -y update"
+   ],
+   "say": "Log in as root. ip dash br a shows both addresses, one for each adapter. nproc, free and df confirm the CPUs, memory and disk match what we asked for. Then update the system. Now the VM is ready for AWX.",
+   "sub": "ip -br a | nproc | free -h | df -h"
+  },
+  {
+   "id": "snapshot",
+   "title": "Take a snapshot",
+   "chapter": "Snapshot",
+   "show": "VirtualBox Manager > Machine > Take Snapshot (or Snapshots tab > Take). Name it clean-centos-10.",
+   "cmd": [],
+   "say": "Last, take a snapshot, and name it clean CentOS. If anything goes wrong in the next episodes, you restore this snapshot and you are back to a clean machine in seconds.",
+   "sub": "Snapshot: clean-centos-10"
+  },
+  {
+   "id": "close",
+   "title": "Close",
+   "chapter": "Outro",
+   "show": "End card: next episode.",
+   "cmd": [],
+   "say": "That is the lab. Next up, episode two: install AWX on k3s, in about ten minutes. All the steps are in the repo, linked below. Subscribe so you do not miss it.",
+   "sub": "Next: Install AWX on k3s"
+  }
+ ]
+}
