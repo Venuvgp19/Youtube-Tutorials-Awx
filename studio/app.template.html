@@ -62,7 +62,7 @@ video#prev{width:100%;border-radius:8px;background:#000;max-height:160px}
       <div class="row"><select id="micSel" style="max-width:100%"></select></div>
       <div id="pre"></div>
       <label class="chk"><input type="checkbox" id="skipPre"> Skip checklist</label>
-      <div class="row"><button class="rec" id="recBtn">● Record</button><button id="stopBtn" disabled>■ Stop</button></div>
+      <div class="row"><button class="rec" id="recBtn">● Record</button><button id="pauseBtn" disabled>⏸ Pause</button><button id="stopBtn" disabled>■ Stop</button></div>
       <div class="row"><span id="timer">00:00</span><span class="pill" id="recPill">not recording</span></div>
       <div class="warn">When Chrome asks what to share, pick ONLY the VM / terminal <b>window</b> (not this studio). Control the take from the pop-out prompter, it stays on top.</div>
       <div class="row"><button id="popBtn">Pop out prompter</button></div>
@@ -88,11 +88,11 @@ const SESSION_SCHEMA = "awx-recording-session/1";
 let script = null, idx = 0;
 const R = { on:false, t0:0, rec:null, micRec:null, screen:null, mic:null, chunks:[], micChunks:[],
             markers:[], frames:[], stepStart:{}, stepEnd:{}, cutOpen:null, speedOpen:null, takeStart:0, takes:[], ranges:[], vid:null,
-            mode:'live', startedAt:null, size:{w:0,h:0,fps:30}, finished:null };
+            mode:'live', paused:false, pauseAcc:0, pauseStart:0, startedAt:null, size:{w:0,h:0,fps:30}, finished:null };
 const prompters = [];
 const $ = s => document.querySelector(s);
 const fmt = t => { t=Math.max(0,t|0); return String(t/60|0).padStart(2,'0')+':'+String(t%60).padStart(2,'0'); };
-const now = () => R.on ? (performance.now()-R.t0)/1000 : 0;
+const now = () => R.on ? ((R.paused?R.pauseStart:performance.now())-R.t0-R.pauseAcc)/1000 : 0;   // paused time is not part of the recording
 function log(m){ const d=$('#log'); d.innerHTML = `<div>${fmt(now())} ${m}</div>` + d.innerHTML; }
 
 // ---------- script loading ----------
@@ -199,20 +199,20 @@ async function openPrompter(){
   const d=w.document; d.open(); d.write('<!doctype html><title>Prompter</title><style>'+PIP_CSS+'</style><div id="r"></div>'); d.close();
   const root=d.getElementById('r');
   root.innerHTML=`<div class="row"><b id="tm" style="font:700 22px ui-monospace,Consolas,monospace">00:00</b><span class="pill" id="rp">idle</span><span style="flex:1"></span>
-    <button id="b">◀</button><button class="primary" id="n">Next ▶</button></div><div id="body"></div>
+    <button id="pz">⏸</button><button id="b">◀</button><button class="primary" id="n">Next ▶</button></div><div id="body"></div>
     <div class="lbl">Markers</div><div class="mk" id="mk"></div><div class="row"><input id="nt" placeholder="note / callout text"></div>`;
   const nt=d.getElementById('nt');
   buildMarkButtons(d, d.getElementById('mk'), ()=>nt.value.trim(), ()=>{nt.value='';});
-  d.getElementById('b').onclick=()=>go(idx-1); d.getElementById('n').onclick=()=>go(idx+1);
+  d.getElementById('pz').onclick=togglePause; d.getElementById('b').onclick=()=>go(idx-1); d.getElementById('n').onclick=()=>go(idx+1);
   d.addEventListener('keydown',kd);
   const p={doc:d,win:w,update(){ if(w.closed) return; const st=script.steps[idx];
       d.getElementById('body').innerHTML=stepHTML(st,idx,true); bindCopy(d.getElementById('body'),st);
-      d.getElementById('tm').textContent=fmt(now()); const rp=d.getElementById('rp'); rp.textContent=R.on?'● REC':'idle'; rp.className='pill'+(R.on?' live':''); }};
+      d.getElementById('tm').textContent=fmt(now()); const rp=d.getElementById('rp'); rp.textContent=R.on?(R.paused?'⏸ PAUSED':'● REC'):'idle'; rp.className='pill'+(R.on&&!R.paused?' live':''); d.getElementById('pz').textContent=R.paused?'▶':'⏸'; }};
   prompters.push(p); p.update();
   w.addEventListener('pagehide',()=>{ const i=prompters.indexOf(p); if(i>=0) prompters.splice(i,1); });
 }
 function kd(e){ if(e.target.tagName==='INPUT') return;
-  if(e.key==='ArrowRight'||e.key===' '){ e.preventDefault(); go(idx+1);} else if(e.key==='ArrowLeft'){ go(idx-1); } }
+  if(e.key==='ArrowRight'||e.key===' '){ e.preventDefault(); go(idx+1);} else if(e.key==='ArrowLeft'){ go(idx-1); } else if(e.key==='p'||e.key==='P'){ togglePause(); } }
 document.addEventListener('keydown',kd);
 
 // ---------- recording ----------
@@ -242,15 +242,23 @@ async function start(){
   $('#saveCard').classList.add('hide');
   for(let c=3;c>0;c--){ $('#recPill').textContent='starting in '+c; await new Promise(r=>setTimeout(r,1000)); }
   idx=0; renderAll();
-  R.rec.onstart=()=>{ R.t0=performance.now(); R.on=true; R.startedAt=new Date().toISOString(); R.takeStart=0;
+  R.rec.onstart=()=>{ R.t0=performance.now(); R.paused=false; R.pauseAcc=0; R.on=true; R.startedAt=new Date().toISOString(); R.takeStart=0;
     R.stepStart[script.steps[0].id]=0; add({t:0,type:'step',step:script.steps[0].id}); log('recording started'); };
   R.rec.start(1000); if(R.micRec) R.micRec.start(1000);
-  $('#recBtn').disabled=true; $('#stopBtn').disabled=false; $('#status').textContent='recording'; $('#recPill').textContent='● REC'; $('#recPill').className='pill live';
+  $('#recBtn').disabled=true; $('#stopBtn').disabled=false; $('#pauseBtn').disabled=false; $('#pauseBtn').textContent='⏸ Pause'; $('#status').textContent='recording'; $('#recPill').textContent='● REC'; $('#recPill').className='pill live';
   tick();
+}
+function togglePause(){
+  if(!R.on) return;
+  if(R.paused){ R.pauseAcc+=performance.now()-R.pauseStart; R.paused=false; R.rec.resume(); if(R.micRec&&R.micRec.state==='paused') R.micRec.resume();
+    $('#recPill').textContent='● REC'; $('#recPill').className='pill live'; $('#pauseBtn').textContent='⏸ Pause'; log('resumed'); }
+  else { R.pauseStart=performance.now(); R.paused=true; R.rec.pause(); if(R.micRec&&R.micRec.state==='recording') R.micRec.pause();
+    $('#recPill').textContent='⏸ PAUSED'; $('#recPill').className='pill'; $('#pauseBtn').textContent='▶ Resume'; log('paused (not recorded)'); }
+  prompters.forEach(p=>p.update());
 }
 function tick(){ if(!R.on) return; $('#timer').textContent=fmt(now()); prompters.forEach(p=>p.update()); setTimeout(tick,500); }
 async function stop(){
-  if(!R.on) return; const t=now(); R.on=false;
+  if(!R.on) return; const t=now(); R.on=false; R.paused=false;
   const last=script.steps[idx]; R.stepEnd[last.id]=t;
   ['cutOpen','speedOpen'].forEach(k=>{ if(R[k]){ R.ranges.push({type:k==='cutOpen'?'cut':'speed',start:R[k].t,end:t,note:R[k].note||'closed automatically at stop',step:last.id}); R[k]=null; } });
   R.takes.push({step:last.id,from:R.takeStart,to:null,final:true});
@@ -259,7 +267,7 @@ async function stop(){
   await new Promise(r=>setTimeout(r,400));
   const blob=new Blob(R.chunks,{type:'video/webm'}); const mic=R.micChunks.length?new Blob(R.micChunks,{type:'audio/webm'}):null;
   R.finished={blob,mic,duration:t,session:buildSession(t,!!mic)};
-  $('#recBtn').disabled=false; $('#stopBtn').disabled=true; $('#status').textContent='take finished'; $('#recPill').textContent='stopped'; $('#recPill').className='pill';
+  $('#recBtn').disabled=false; $('#stopBtn').disabled=true; $('#pauseBtn').disabled=true; $('#status').textContent='take finished'; $('#recPill').textContent='stopped'; $('#recPill').className='pill';
   $('#saveInfo').textContent=`Duration ${fmt(t)} · video ${(blob.size/1048576).toFixed(0)} MB · ${R.markers.length} markers · ${R.frames.length} frames`;
   $('#saveCard').classList.remove('hide'); prompters.forEach(p=>p.update()); log('stopped');
 }
@@ -300,7 +308,7 @@ async function save(){
 window.addEventListener('DOMContentLoaded',()=>{
   initScripts();
   buildMarkButtons(document, $('#mkMain'), ()=>$('#noteMain').value.trim(), ()=>{$('#noteMain').value='';});
-  $('#recBtn').onclick=start; $('#stopBtn').onclick=stop; $('#popBtn').onclick=openPrompter; $('#saveBtn').onclick=save;
+  $('#recBtn').onclick=start; $('#stopBtn').onclick=stop; $('#pauseBtn').onclick=togglePause; $('#popBtn').onclick=openPrompter; $('#saveBtn').onclick=save;
   listMics();
 });
 window.__studio={R,go,marker,start,stop,get script(){return script},get idx(){return idx}};

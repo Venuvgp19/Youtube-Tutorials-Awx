@@ -8,6 +8,7 @@ Recording studio for the AWX from Zero series. Teleprompter with commands to typ
 2. Pick the episode, tick the pre-flight list, choose **Live voice** or **Silent (narrate later)**.
 3. Press **Pop out prompter**, then **Record**. In Chrome's picker choose the VM/terminal **window** only.
 4. Work through the steps. Click **Next** in the pop-out (it stays on top). Use the markers as you go:
+   - **Pause** (⏸ button in the pop-out and main panel, or press `P`): stops recording during downloads, installs and reboots; the paused time is not in the video and markers stay in sync. Press again to resume.
    - **Retake**: you fumbled, redo the step. The bad take is dropped automatically.
    - **Cut**: press at the start and again at the end of a mistake or dead stretch.
    - **Speed**: press at the start and end of a wait (image downloads). Time-lapsed, audio muted.
