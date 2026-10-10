@@ -46,6 +46,14 @@ bcdedit /set hypervisorlaunchtype off
    k3s kubectl -n awx get secret awx-admin-password -o jsonpath='{.data.password}' | base64 -d; echo
    ```
 
+## Remove everything (start over)
+
+```bash
+sudo ./uninstall.sh        # asks first; -y skips the question; --selinux restores enforcing
+```
+
+Removes AWX, the AWX Operator, k3s and the firewall rules `install.sh` added. This deletes the AWX database and all job data. Restoring the VirtualBox snapshot is the fastest guaranteed clean slate.
+
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
