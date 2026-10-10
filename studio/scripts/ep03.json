@@ -1,0 +1,117 @@
+{
+ "schema": "awx-script/1",
+ "episode": 3,
+ "slug": "ep03-the-8-building-blocks-of-awx",
+ "title": "The 8 building blocks of AWX",
+ "target_minutes": "12-15 raw, about 8-10 after cuts",
+ "preflight": [
+  "Lab VM running (snapshot AWX installed). Open http://192.168.100.102:30080 and log in as admin; the password was changed in episode 2",
+  "SSH to the VM works with a password: run  systemctl is-active sshd  and  grep -i '^PermitRootLogin' /etc/ssh/sshd_config  (must say yes) on the VM",
+  "AWX pods all Running: k3s kubectl -n awx get pods",
+  "Browser at 100 percent zoom, dark theme, one clean tab, bookmarks bar hidden",
+  "Remove any old objects from episode tests (Homelab org, lab-ssh, series-repo, lab, ping-lab) so you build them live",
+  "Do NOT show the admin password or the lab-ssh password on screen"
+ ],
+ "steps": [
+  {
+   "id": "open",
+   "title": "Open",
+   "chapter": "Intro",
+   "show": "AWX dashboard in the browser, logged in as admin. Left menu visible.",
+   "cmd": [],
+   "say": "In episode two we installed AWX. Now you log in and see a wall of menus. Today I map every screen to one of eight objects: organization, credential, project, inventory, job template, workflow, schedule and execution environment. We build all eight on the lab VM, and you run a real job."
+  },
+  {
+   "id": "menu",
+   "title": "The eight objects on the menu",
+   "chapter": "The big picture",
+   "show": "Expand the left menu: Resources, Access, Administration. Hover each item without clicking.",
+   "cmd": [],
+   "say": "Almost every menu item is one of eight objects. Access holds organizations, users and teams. Resources holds templates, credentials, projects and inventories. Administration holds execution environments, notifications and settings. Hold that picture, we build them in this order, because each one needs the one before it."
+  },
+  {
+   "id": "org",
+   "title": "1. Organization",
+   "chapter": "Organization",
+   "show": "Access > Organizations. Show Default. Add: name Homelab, description Series lab. Save.",
+   "cmd": [],
+   "say": "One: the organization. It is the top level container. Everything below belongs to an organization, and permissions are handed out per organization. We keep Default untouched and create Homelab."
+  },
+  {
+   "id": "cred",
+   "title": "2. Credential",
+   "chapter": "Credential",
+   "show": "Resources > Credentials > Add. Name lab-ssh, organization Homelab, type Machine, username root. Type the password yourself off camera or blur it. Save.",
+   "cmd": [],
+   "say": "Two: the credential. It is how AWX logs in to your machines. A machine credential holds a username and a password or an SSH key. AWX stores it encrypted and never shows it again. Jobs use it, people do not see it.",
+   "watch": "Do not show the password on screen. Pause recording while you type it, then resume."
+  },
+  {
+   "id": "project",
+   "title": "3. Project",
+   "chapter": "Project",
+   "show": "Resources > Projects > Add. Name series-repo, organization Homelab, source control type Git, URL https://github.com/Venuvgp19/Youtube-Tutorials-Awx.git, branch main. Save and wait for the green Successful status.",
+   "cmd": [],
+   "say": "Three: the project. A project is a Git repository full of playbooks. AWX clones it and keeps it in sync. Our series repo is the project, and the playbook we use today is playbooks slash ping test dot yml.",
+   "watch": "Open the project Jobs tab once to show the sync job. Press Speed during the wait if it takes long."
+  },
+  {
+   "id": "inv",
+   "title": "4. Inventory",
+   "chapter": "Inventory",
+   "show": "Resources > Inventories > Add > Add inventory. Name lab, organization Homelab. Save. Then Hosts > Add: name 192.168.100.102. Save.",
+   "cmd": [],
+   "say": "Four: the inventory. It is the list of machines a job can touch. Here it is one host, the lab VM itself. Later episodes use groups, variables and dynamic sources like AWS."
+  },
+  {
+   "id": "ee",
+   "title": "5. Execution environment",
+   "chapter": "Execution environment",
+   "show": "Administration > Execution Environments. Open AWX EE (latest) and show the image name. Do not change anything.",
+   "cmd": [],
+   "say": "Five: the execution environment. A job does not run on the AWX web pod. It runs inside a container image that carries Ansible and its collections. That image is the execution environment. We use the default one now, and in episode seven we build our own."
+  },
+  {
+   "id": "tmpl",
+   "title": "6. Job template",
+   "chapter": "Job template",
+   "show": "Resources > Templates > Add > Add job template. Name ping-lab, job type Run, inventory lab, project series-repo, execution environment default, playbook playbooks/ping-test.yml, credential lab-ssh. Save, then Launch.",
+   "cmd": [],
+   "say": "Six: the job template, and this is where it comes together. A job template is a recipe: this playbook, from this project, on this inventory, with this credential, in this execution environment. Launch it, and watch the output stream live.",
+   "watch": "Wait for the job to show Successful. If it fails with host key or connection errors, see the troubleshooting list in the README and re-record this step."
+  },
+  {
+   "id": "wf",
+   "title": "7. Workflow template",
+   "chapter": "Workflow",
+   "show": "Resources > Templates > Add > Add workflow template. Name sync-then-ping, organization Homelab. Save, then Visualizer > Start > Add node: Project Sync series-repo. Add a second node on success: Job template ping-lab. Save and Launch.",
+   "cmd": [],
+   "say": "Seven: the workflow. A workflow chains templates and projects into a flow, with branches for success and failure. Here it syncs the repo first, then runs the ping. Episode nine goes deep on approvals and failure paths."
+  },
+  {
+   "id": "sched",
+   "title": "8. Schedule",
+   "chapter": "Schedule",
+   "show": "Open job template ping-lab > Schedules > Add. Name every-5-min, start now, frequency Minute, every 5. Save and point at the Next run time. Then turn the toggle off.",
+   "cmd": [],
+   "say": "Eight: the schedule. Any template can run on a timer. Pick a start time and a frequency, and AWX launches it for you. I turn it off now, so it does not spam the lab.",
+   "watch": "Turn the schedule off before moving on, or it keeps launching jobs."
+  },
+  {
+   "id": "map",
+   "title": "The whole picture",
+   "chapter": "Recap",
+   "show": "Open the job template ping-lab details and point at each field in turn: inventory, project, execution environment, credential. Then the Organizations list.",
+   "cmd": [],
+   "say": "That is the whole map. A job template points to a project, an inventory, a credential and an execution environment, and all of them live inside an organization. A workflow chains templates. A schedule triggers them. If you can name these eight, you can read any AWX screen."
+  },
+  {
+   "id": "close",
+   "title": "Close",
+   "chapter": "Wrap up",
+   "show": "Dashboard.",
+   "cmd": [],
+   "say": "Next time: your first job from scratch, from a Git project to a job template you launch yourself. All the commands are in the repo, in the ep zero three folder. Thanks for watching, and see you in the next one."
+  }
+ ]
+}
