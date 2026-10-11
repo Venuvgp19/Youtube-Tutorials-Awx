@@ -26,7 +26,7 @@ k3s kubectl -n awx get secret awx-admin-password -o jsonpath='{.data.password}' 
 |---|--------|------|--------|
 | 1 | Organization | Access > Organizations | `Homelab` |
 | 2 | Credential | Resources > Credentials | `lab-ssh`, type Machine, user `root`, password |
-| 3 | Project | Resources > Projects | `series-repo`, Git, `https://github.com/Venuvgp19/Youtube-Tutorials-Awx.git`, branch `main` |
+| 3 | Project (connect the repo) | Resources > Projects | `series-repo`, Git, `https://github.com/Venuvgp19/Youtube-Tutorials-Awx.git`, branch `main`, tick Update revision on job launch |
 | 4 | Inventory | Resources > Inventories | `lab`, host `192.168.100.102` |
 | 5 | Execution environment | Administration > Execution Environments | look at the default `AWX EE (latest)` |
 | 6 | Job template | Resources > Templates | `ping-lab`: project `series-repo`, inventory `lab`, credential `lab-ssh`, playbook `playbooks/ping-test.yml` |
@@ -34,6 +34,20 @@ k3s kubectl -n awx get secret awx-admin-password -o jsonpath='{.data.password}' 
 | 8 | Schedule | on `ping-lab` > Schedules | `every-5-min`, frequency Minute, every 5, then switch it off |
 
 The playbook is `playbooks/ping-test.yml` in the repo root.
+
+## Connect the repo to AWX
+
+AWX does not store playbooks. It pulls them from Git through a **project**.
+
+1. On GitHub open the repo, click **Code**, copy the HTTPS URL: `https://github.com/Venuvgp19/Youtube-Tutorials-Awx.git`
+2. AWX: **Resources > Projects > Add**
+3. Name `series-repo`, organization `Homelab`, source control type **Git**
+4. Paste the URL, branch `main`. The repo is public, so no source control credential is needed (private repos: [ep05](../ep05/))
+5. Tick **Update revision on job launch**, then **Save**
+6. Wait for **Successful**. Open the project **Jobs** tab to see the sync (git clone) output
+7. The playbook now shows up in the job template dropdown: `playbooks/ping-test.yml`
+
+To pull new commits later, click the sync icon on the project.
 
 ## Troubleshooting
 

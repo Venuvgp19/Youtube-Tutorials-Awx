@@ -10,7 +10,8 @@
   "AWX pods all Running: k3s kubectl -n awx get pods",
   "Browser at 100 percent zoom, dark theme, one clean tab, bookmarks bar hidden",
   "Remove any old objects from episode tests (Homelab org, lab-ssh, series-repo, lab, ping-lab) so you build them live",
-  "Do NOT show the admin password or the lab-ssh password on screen"
+  "Do NOT show the admin password or the lab-ssh password on screen",
+  "Open https://github.com/Venuvgp19/Youtube-Tutorials-Awx in a second tab and confirm playbooks/ping-test.yml exists on main"
  ],
  "steps": [
   {
@@ -47,13 +48,22 @@
    "watch": "Do not show the password on screen. Pause recording while you type it, then resume."
   },
   {
-   "id": "project",
-   "title": "3. Project",
+   "id": "repo",
+   "title": "3a. Show the Git repo",
    "chapter": "Project",
-   "show": "Resources > Projects > Add. Name series-repo, organization Homelab, source control type Git, URL https://github.com/Venuvgp19/Youtube-Tutorials-Awx.git, branch main. Save and wait for the green Successful status.",
+   "show": "Browser tab on GitHub: github.com/Venuvgp19/Youtube-Tutorials-Awx. Open the playbooks folder and ping-test.yml. Then click the green Code button and copy the HTTPS URL.",
    "cmd": [],
-   "say": "Three: the project. A project is a Git repository full of playbooks. AWX clones it and keeps it in sync. Our series repo is the project, and the playbook we use today is playbooks slash ping test dot yml.",
-   "watch": "Open the project Jobs tab once to show the sync job. Press Speed during the wait if it takes long."
+   "say": "Before the project, look at where it comes from. AWX never edits playbooks itself. They live in Git. This is our series repo, and here is the playbook we will run, playbooks slash ping test dot yml. Click Code, copy the HTTPS address. That is all AWX needs. The repo is public, so no password is needed. For a private repo you add a source control credential, and we do that in episode five.",
+   "watch": "Zoom on the copied URL ending in .git."
+  },
+  {
+   "id": "project",
+   "title": "3b. Connect the repo to AWX (Project)",
+   "chapter": "Project",
+   "show": "AWX: Resources > Projects > Add. Name series-repo, organization Homelab, source control type Git, paste the URL, branch main. Leave 'Update revision on job launch' ticked. Save. Wait for the green Successful status, then open the project Jobs tab and show the sync job output.",
+   "cmd": [],
+   "say": "Three: the project. This is where you connect the repo to AWX. Name it, pick Git as the source control type, paste the address and set the branch to main. I also tick update revision on job launch, so every job runs the latest playbook. Save, and AWX clones the repo. Green Successful means AWX now sees every playbook in it. Open the sync job to see the git clone happen.",
+   "watch": "Show the sync job output once. Press Speed during the wait if it takes long. If it fails, check internet from the VM (NIC 2 NAT)."
   },
   {
    "id": "inv",
