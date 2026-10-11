@@ -6,7 +6,7 @@
  "target_minutes": "12-15 raw, about 8-10 after cuts",
  "preflight": [
   "Lab VM running (snapshot AWX installed). Open http://192.168.100.102:30080 and log in as admin; the password was changed in episode 2",
-  "SSH password login works on the VM: grep -i '^PasswordAuthentication' /etc/ssh/sshd_config must not say no, and systemctl is-active sshd says active. The ansible user does NOT exist yet: you create it on camera (delete it first with userdel -r ansible if it is left from a test)",
+  "SSH password login works on the VM: grep -i '^PasswordAuthentication' /etc/ssh/sshd_config must not say no, and systemctl is-active sshd says active. The ansible user does NOT exist yet on either node: you create it on camera (delete it first with userdel -r ansible if it is left from a test)",
   "AWX pods all Running: k3s kubectl -n awx get pods",
   "Browser at 100 percent zoom, dark theme, one clean tab, bookmarks bar hidden",
   "Remove any old objects from episode tests (Homelab org, lab-ssh, series-repo, lab, ping-lab) so you build them live",
@@ -40,26 +40,10 @@
    "say": "One: the organization. It is the top level container. Everything below belongs to an organization, and permissions are handed out per organization. We keep Default untouched and create Homelab."
   },
   {
-   "id": "user",
-   "title": "2a. Create the ansible user on the VM",
-   "chapter": "Credential",
-   "show": "Terminal on the VM as root. Run the commands one by one. Type the password off camera (press P to pause) when passwd asks.",
-   "cmd": [
-    "useradd -m -s /bin/bash ansible",
-    "passwd ansible",
-    "echo 'ansible ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/ansible",
-    "chmod 440 /etc/sudoers.d/ansible",
-    "visudo -cf /etc/sudoers.d/ansible",
-    "su - ansible -c 'sudo whoami'"
-   ],
-   "say": "Before the credential, we need an account for AWX to log in with. Never use root for this. We create a user called ansible, give it a password, and give it full sudo rights with no password prompt, because automation cannot type one. Visudo checks the file is valid. And the last command proves it: logged in as ansible, sudo whoami says root.",
-   "watch": "Last command must print: root. Pause recording while typing the password."
-  },
-  {
    "id": "node2",
-   "title": "2b. Clone the VM to make a second node",
+   "title": "2a. Clone the VM to make a second node",
    "chapter": "Credential",
-   "show": "VirtualBox: shut down the lab VM. Right-click it > Clone. Name awx-node2, MAC address policy 'Generate new MAC addresses for all network adapters', Full clone, Current machine state. Then Settings on awx-node2: 1 vCPU, 2048 MB RAM. Start it and log in on the console as root. Run the commands one by one. Then start the lab VM again.",
+   "show": "VirtualBox: shut down the lab VM. Right-click it > Clone. Name awx-node2, MAC address policy 'Generate new MAC addresses for all network adapters', Full clone, Current machine state. Then Settings on awx-node2: 1 vCPU, 2048 MB RAM. Start it and log in on the console as root. Run the commands one by one. Check node2 shows 192.168.100.103, then start the lab VM again.",
    "cmd": [
     "hostnamectl set-hostname node2",
     "rm -f /etc/machine-id && systemd-machine-id-setup",
@@ -69,11 +53,26 @@
     "nmcli con show --active",
     "nmcli con mod \"<host-only connection name>\" ipv4.method manual ipv4.addresses 192.168.100.103/24",
     "nmcli con up \"<host-only connection name>\"",
-    "ip -br a",
+    "ip -br a"
+   ],
+   "say": "AWX manages other machines, so one VM is not enough. AWX runs on this one, so we need a second node to manage. The quickest way is to clone the lab VM. Full clone, and generate new MAC addresses, so the two machines do not collide on the network. The clone is a copy, so we make it unique. Give it its own host name, its own machine ID and its own SSH host keys. Then we switch off k3s, because this node does not run AWX, it is only a target. Last, we give it its own address, one nought three. Same network as the first node.",
+   "watch": "Pause (P) if the clone takes long. Use the real connection name from 'nmcli con show --active' (the one holding 192.168.100.x). Final ip -br a must show 192.168.100.103/24."
+  },
+  {
+   "id": "user",
+   "title": "2b. Create the ansible user on both nodes",
+   "chapter": "Credential",
+   "show": "Terminal on node1 as root, then the same commands on node2 (use the VirtualBox console or ssh root@192.168.100.103). Run the commands one by one. Type the password off camera (press P to pause) when passwd asks. Use the same password on both nodes.",
+   "cmd": [
+    "useradd -m -s /bin/bash ansible",
+    "passwd ansible",
+    "echo 'ansible ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/ansible",
+    "chmod 440 /etc/sudoers.d/ansible",
+    "visudo -cf /etc/sudoers.d/ansible",
     "su - ansible -c 'sudo whoami'"
    ],
-   "say": "AWX manages other machines, so one VM is not enough. AWX runs on this one, so we need a second node to manage. The quickest way is to clone the lab VM. Full clone, and generate new MAC addresses, so the two machines do not collide on the network. Because we clone after creating the ansible user, the user and its sudo rights come with it. The clone is a copy, so we make it unique. Give it its own host name, its own machine ID and its own SSH host keys. Then we switch off k3s, because this node does not run AWX, it is only a target. Last, we give it its own address, one nought three. Same network as the first node. The final command proves the ansible user works here too.",
-   "watch": "Pause (P) if the clone takes long. Last command must print: root. Use the real connection name from 'nmcli con show --active' (the one holding 192.168.100.x)."
+   "say": "Before the credential, we need an account for AWX to log in with, on every node. Never use root for this. We create a user called ansible, give it a password, and give it full sudo rights with no password prompt, because automation cannot type one. Visudo checks the file is valid. And the last command proves it: logged in as ansible, sudo whoami says root. Now the same commands again on node two.",
+   "watch": "Last command must print: root on BOTH nodes. Pause recording while typing the password."
   },
   {
    "id": "cred",
@@ -81,7 +80,7 @@
    "chapter": "Credential",
    "show": "AWX: Resources > Credentials > Add. Name lab-ssh, organization Homelab, credential type Machine, username ansible, password (type it off camera, press P). Privilege escalation method sudo, privilege escalation username root, leave its password empty. Save. Point at the lock icon: the password shows as Encrypted.",
    "cmd": [],
-   "say": "Now we give AWX that account. It is the same on both nodes, so one credential covers both. Resources, Credentials, Add. The type is Machine, the username is ansible, and the password goes here. Privilege escalation is sudo, so playbooks can become root when they need to. Save, and look: the password is now Encrypted. AWX never shows it again, and people who can use the credential cannot read it.",
+   "say": "Now we give AWX that account. We made the same user and password on both nodes, so one credential covers both. Resources, Credentials, Add. The type is Machine, the username is ansible, and the password goes here. Privilege escalation is sudo, so playbooks can become root when they need to. Save, and look: the password is now Encrypted. AWX never shows it again, and people who can use the credential cannot read it.",
    "watch": "Do not show the password. Pause recording while you type it, then resume."
   },
   {
