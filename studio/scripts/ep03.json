@@ -10,8 +10,9 @@
   "AWX pods all Running: k3s kubectl -n awx get pods",
   "Browser at 100 percent zoom, dark theme, one clean tab, bookmarks bar hidden",
   "Remove any old objects from episode tests (Homelab org, lab-ssh, series-repo, lab, ping-lab) so you build them live",
-  "Do NOT show the admin password or the lab-ssh password on screen",
-  "Do NOT show the admin password or the ansible user's password on screen (pause recording with P while typing them)"
+  "Do NOT show the admin password or the ansible user's password on screen (pause recording with P while typing them)",
+  "Host PC has about 3 GB RAM and 10+ GB disk free for the second VM (node2 is a full clone of the lab VM)",
+  "Remove node2 from earlier tests (VirtualBox: Remove > Delete all files) and the second host from the lab inventory so you add them live"
  ],
  "steps": [
   {
@@ -55,12 +56,32 @@
    "watch": "Last command must print: root. Pause recording while typing the password."
   },
   {
+   "id": "node2",
+   "title": "2b. Clone the VM to make a second node",
+   "chapter": "Credential",
+   "show": "VirtualBox: shut down the lab VM. Right-click it > Clone. Name awx-node2, MAC address policy 'Generate new MAC addresses for all network adapters', Full clone, Current machine state. Then Settings on awx-node2: 1 vCPU, 2048 MB RAM. Start it and log in on the console as root. Run the commands one by one. Then start the lab VM again.",
+   "cmd": [
+    "hostnamectl set-hostname node2",
+    "rm -f /etc/machine-id && systemd-machine-id-setup",
+    "rm -f /etc/ssh/ssh_host_* && ssh-keygen -A && systemctl restart sshd",
+    "systemctl disable --now k3s; /usr/local/bin/k3s-killall.sh",
+    "ip -br a",
+    "nmcli con show --active",
+    "nmcli con mod \"<host-only connection name>\" ipv4.method manual ipv4.addresses 192.168.100.103/24",
+    "nmcli con up \"<host-only connection name>\"",
+    "ip -br a",
+    "su - ansible -c 'sudo whoami'"
+   ],
+   "say": "AWX manages other machines, so one VM is not enough. AWX runs on this one, so we need a second node to manage. The quickest way is to clone the lab VM. Full clone, and generate new MAC addresses, so the two machines do not collide on the network. Because we clone after creating the ansible user, the user and its sudo rights come with it. The clone is a copy, so we make it unique. Give it its own host name, its own machine ID and its own SSH host keys. Then we switch off k3s, because this node does not run AWX, it is only a target. Last, we give it its own address, one nought three. Same network as the first node. The final command proves the ansible user works here too.",
+   "watch": "Pause (P) if the clone takes long. Last command must print: root. Use the real connection name from 'nmcli con show --active' (the one holding 192.168.100.x)."
+  },
+  {
    "id": "cred",
-   "title": "2b. Credential (add it to AWX)",
+   "title": "2c. Credential (add it to AWX)",
    "chapter": "Credential",
    "show": "AWX: Resources > Credentials > Add. Name lab-ssh, organization Homelab, credential type Machine, username ansible, password (type it off camera, press P). Privilege escalation method sudo, privilege escalation username root, leave its password empty. Save. Point at the lock icon: the password shows as Encrypted.",
    "cmd": [],
-   "say": "Now we give AWX that account. Resources, Credentials, Add. The type is Machine, the username is ansible, and the password goes here. Privilege escalation is sudo, so playbooks can become root when they need to. Save, and look: the password is now Encrypted. AWX never shows it again, and people who can use the credential cannot read it.",
+   "say": "Now we give AWX that account. It is the same on both nodes, so one credential covers both. Resources, Credentials, Add. The type is Machine, the username is ansible, and the password goes here. Privilege escalation is sudo, so playbooks can become root when they need to. Save, and look: the password is now Encrypted. AWX never shows it again, and people who can use the credential cannot read it.",
    "watch": "Do not show the password. Pause recording while you type it, then resume."
   },
   {
@@ -85,9 +106,10 @@
    "id": "inv",
    "title": "4. Inventory",
    "chapter": "Inventory",
-   "show": "Resources > Inventories > Add > Add inventory. Name lab, organization Homelab. Save. Then Hosts > Add: name 192.168.100.102. Save.",
+   "show": "Resources > Inventories > Add > Add inventory. Name lab, organization Homelab. Save. Then Hosts > Add: name 192.168.100.102. Save. Add a second host: 192.168.100.103. Save.",
    "cmd": [],
-   "say": "Four: the inventory. It is the list of machines a job can touch. Here it is one host, the lab VM itself. Later episodes use groups, variables and dynamic sources like AWS."
+   "say": "Four: the inventory. It is the list of machines a job can touch. Here it is two hosts: the first node, where AWX itself runs, and the new node we cloned. Later episodes use groups, variables and dynamic sources like AWS.",
+   "watch": "Both hosts must be listed before you move on."
   },
   {
    "id": "ee",
@@ -103,8 +125,8 @@
    "chapter": "Job template",
    "show": "Resources > Templates > Add > Add job template. Name ping-lab, job type Run, inventory lab, project series-repo, execution environment default, playbook ep03/ping.yml, credential lab-ssh, and tick Privilege escalation. Save, then Launch.",
    "cmd": [],
-   "say": "Six: the job template, and this is where it comes together. A job template is a recipe: this playbook, from this project, on this inventory, with this credential, in this execution environment. Tick privilege escalation so the playbook can use sudo. Launch it, and watch the output stream live. The last task prints root, which proves the ansible user has full access.",
-   "watch": "Wait for Successful. If it fails: unreachable or permission denied, see the README troubleshooting table and re-record this step."
+   "say": "Six: the job template, and this is where it comes together. A job template is a recipe: this playbook, from this project, on this inventory, with this credential, in this execution environment. Tick privilege escalation so the playbook can use sudo. Launch it, and watch the output stream live. The play runs on both hosts, and the last task prints root on each, which proves the ansible user has full access on both nodes.",
+   "watch": "Wait for Successful on BOTH hosts. If one is unreachable, test from the first node: ssh ansible@192.168.100.103. See the README troubleshooting table."
   },
   {
    "id": "wf",
