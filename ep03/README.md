@@ -10,7 +10,7 @@
 
 Everything is clicked in the AWX UI (`http://192.168.100.102:30080`), built on the lab from [ep02](../ep02/).
 
-## Before you record (on the VM)
+## Before you start (on the VM)
 
 ```bash
 k3s kubectl -n awx get pods                      # all Running or Completed
@@ -18,7 +18,7 @@ systemctl is-active sshd                         # active
 grep -i '^PasswordAuthentication' /etc/ssh/sshd_config  # must not say no
 ```
 
-Read the admin password if you need it (do not show it on screen):
+Read the admin password if you need it:
 
 ```bash
 k3s kubectl -n awx get secret awx-admin-password -o jsonpath='{.data.password}' | base64 -d; echo
@@ -47,7 +47,7 @@ On the VM, as root:
 
 ```bash
 useradd -m -s /bin/bash ansible
-passwd ansible                                            # type a password (do not show it on camera)
+passwd ansible                                            # type a password
 echo 'ansible ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/ansible
 chmod 440 /etc/sudoers.d/ansible
 visudo -cf /etc/sudoers.d/ansible                         # must say: parsed OK
@@ -73,7 +73,7 @@ su - ansible -c "ssh-keygen -t ed25519 -N '' -f ~/.ssh/id_ed25519 && cat ~/.ssh/
 cat /home/ansible/.ssh/id_ed25519      # paste into a credential of type Machine, field SSH Private Key
 ```
 
-Never show the private key on camera.
+Never share the private key.
 
 ## Connect the repo to AWX
 

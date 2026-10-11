@@ -6,7 +6,7 @@
 
 **Files:**
 
-- `use-secret.yml`: reads a vaulted variable from `secrets.yml` (you create it on camera with `ansible-vault encrypt_string`)
+- `use-secret.yml`: reads a vaulted variable from `secrets.yml` (you create it with `ansible-vault encrypt_string`)
 - `use-token.yml`: reads a token injected by a custom credential type
 - `credential-type/input.yml` and `credential-type/injector.yml`: paste into Administration -> Credential Types
 
