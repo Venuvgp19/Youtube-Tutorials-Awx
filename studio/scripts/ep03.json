@@ -12,7 +12,7 @@
   "Remove any old objects from episode tests (Homelab org, lab-ssh, series-repo, lab, ping-lab) so you build them live",
   "Do NOT show the admin password or the ansible user's password on screen (pause recording with P while typing them)",
   "Host PC has about 3 GB RAM and 10+ GB disk free for the second VM (node2 is a full clone of the lab VM)",
-  "Remove node2 from earlier tests (VirtualBox: Remove > Delete all files) and the second host from the lab inventory so you add them live"
+  "Remove node2 from earlier tests (VirtualBox: Remove > Delete all files) so you build it live"
  ],
  "steps": [
   {
@@ -60,9 +60,9 @@
   },
   {
    "id": "user",
-   "title": "2b. Create the ansible user on both nodes",
+   "title": "2b. Create the ansible user on node2",
    "chapter": "Credential",
-   "show": "Terminal on node1 as root, then the same commands on node2 (use the VirtualBox console or ssh root@192.168.100.103). Run the commands one by one. Type the password off camera (press P to pause) when passwd asks. Use the same password on both nodes.",
+   "show": "Terminal on node2 (VirtualBox console, or ssh root@192.168.100.103), as root. Run the commands one by one. Type the password off camera (press P to pause) when passwd asks.",
    "cmd": [
     "useradd -m -s /bin/bash ansible",
     "passwd ansible",
@@ -71,8 +71,8 @@
     "visudo -cf /etc/sudoers.d/ansible",
     "su - ansible -c 'sudo whoami'"
    ],
-   "say": "Before the credential, we need an account for AWX to log in with, on every node. Never use root for this. We create a user called ansible, give it a password, and give it full sudo rights with no password prompt, because automation cannot type one. Visudo checks the file is valid. And the last command proves it: logged in as ansible, sudo whoami says root. Now the same commands again on node two.",
-   "watch": "Last command must print: root on BOTH nodes. Pause recording while typing the password."
+   "say": "Before the credential, we need an account for AWX to log in with, on the machine it will manage, node two. Never use root for this. We create a user called ansible, give it a password, and give it full sudo rights with no password prompt, because automation cannot type one. Visudo checks the file is valid. And the last command proves it: logged in as ansible, sudo whoami says root. Node one only runs AWX, so it does not need this user.",
+   "watch": "Last command must print: root. Pause recording while typing the password."
   },
   {
    "id": "cred",
@@ -80,7 +80,7 @@
    "chapter": "Credential",
    "show": "AWX: Resources > Credentials > Add. Name lab-ssh, organization Homelab, credential type Machine, username ansible, password (type it off camera, press P). Privilege escalation method sudo, privilege escalation username root, leave its password empty. Save. Point at the lock icon: the password shows as Encrypted.",
    "cmd": [],
-   "say": "Now we give AWX that account. We made the same user and password on both nodes, so one credential covers both. Resources, Credentials, Add. The type is Machine, the username is ansible, and the password goes here. Privilege escalation is sudo, so playbooks can become root when they need to. Save, and look: the password is now Encrypted. AWX never shows it again, and people who can use the credential cannot read it.",
+   "say": "Now we give AWX that account. Resources, Credentials, Add. The type is Machine, the username is ansible, and the password goes here. Privilege escalation is sudo, so playbooks can become root when they need to. Save, and look: the password is now Encrypted. AWX never shows it again, and people who can use the credential cannot read it.",
    "watch": "Do not show the password. Pause recording while you type it, then resume."
   },
   {
@@ -105,10 +105,10 @@
    "id": "inv",
    "title": "4. Inventory",
    "chapter": "Inventory",
-   "show": "Resources > Inventories > Add > Add inventory. Name lab, organization Homelab. Save. Then Hosts > Add: name 192.168.100.102. Save. Add a second host: 192.168.100.103. Save.",
+   "show": "Resources > Inventories > Add > Add inventory. Name lab, organization Homelab. Save. Then Hosts > Add: name 192.168.100.103 (node2). Save.",
    "cmd": [],
-   "say": "Four: the inventory. It is the list of machines a job can touch. Here it is two hosts: the first node, where AWX itself runs, and the new node we cloned. Later episodes use groups, variables and dynamic sources like AWS.",
-   "watch": "Both hosts must be listed before you move on."
+   "say": "Four: the inventory. It is the list of machines a job can touch. Here it is one host, node two, the machine we cloned. AWX itself stays on node one. Later episodes use groups, variables and dynamic sources like AWS.",
+   "watch": "Host must be 192.168.100.103, not the AWX node."
   },
   {
    "id": "ee",
@@ -124,8 +124,8 @@
    "chapter": "Job template",
    "show": "Resources > Templates > Add > Add job template. Name ping-lab, job type Run, inventory lab, project series-repo, execution environment default, playbook ep03/ping.yml, credential lab-ssh, and tick Privilege escalation. Save, then Launch.",
    "cmd": [],
-   "say": "Six: the job template, and this is where it comes together. A job template is a recipe: this playbook, from this project, on this inventory, with this credential, in this execution environment. Tick privilege escalation so the playbook can use sudo. Launch it, and watch the output stream live. The play runs on both hosts, and the last task prints root on each, which proves the ansible user has full access on both nodes.",
-   "watch": "Wait for Successful on BOTH hosts. If one is unreachable, test from the first node: ssh ansible@192.168.100.103. See the README troubleshooting table."
+   "say": "Six: the job template, and this is where it comes together. A job template is a recipe: this playbook, from this project, on this inventory, with this credential, in this execution environment. Tick privilege escalation so the playbook can use sudo. Launch it, and watch the output stream live. The last task prints root, which proves the ansible user has full access on node two.",
+   "watch": "Wait for Successful. If unreachable, test from node1: ssh ansible@192.168.100.103. See the README troubleshooting table."
   },
   {
    "id": "wf",
