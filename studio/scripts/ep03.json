@@ -11,7 +11,7 @@
   "Browser at 100 percent zoom, dark theme, one clean tab, bookmarks bar hidden",
   "Remove any old objects from episode tests (Homelab org, lab-ssh, series-repo, lab, ping-lab) so you build them live",
   "Do NOT show the admin password or the lab-ssh password on screen",
-  "Open https://github.com/Venuvgp19/Youtube-Tutorials-Awx in a second tab and confirm playbooks/ping-test.yml exists on main"
+  "Open https://github.com/Venuvgp19/Youtube-Tutorials-Awx in a second tab and confirm ep03/ping.yml exists on main"
  ],
  "steps": [
   {
@@ -51,9 +51,9 @@
    "id": "repo",
    "title": "3a. Show the Git repo",
    "chapter": "Project",
-   "show": "Browser tab on GitHub: github.com/Venuvgp19/Youtube-Tutorials-Awx. Open the playbooks folder and ping-test.yml. Then click the green Code button and copy the HTTPS URL.",
+   "show": "Browser tab on GitHub: github.com/Venuvgp19/Youtube-Tutorials-Awx. Open the ep03 folder and ping.yml. Then click the green Code button and copy the HTTPS URL.",
    "cmd": [],
-   "say": "Before the project, look at where it comes from. AWX never edits playbooks itself. They live in Git. This is our series repo, and here is the playbook we will run, playbooks slash ping test dot yml. Click Code, copy the HTTPS address. That is all AWX needs. The repo is public, so no password is needed. For a private repo you add a source control credential, and we do that in episode five.",
+   "say": "Before the project, look at where it comes from. AWX never edits playbooks itself. They live in Git. This is our series repo, and here is the playbook we will run, ep zero three slash ping dot yml. Click Code, copy the HTTPS address. That is all AWX needs. The repo is public, so no password is needed. For a private repo you add a source control credential, and we do that in episode five.",
    "watch": "Zoom on the copied URL ending in .git."
   },
   {
@@ -85,7 +85,7 @@
    "id": "tmpl",
    "title": "6. Job template",
    "chapter": "Job template",
-   "show": "Resources > Templates > Add > Add job template. Name ping-lab, job type Run, inventory lab, project series-repo, execution environment default, playbook playbooks/ping-test.yml, credential lab-ssh. Save, then Launch.",
+   "show": "Resources > Templates > Add > Add job template. Name ping-lab, job type Run, inventory lab, project series-repo, execution environment default, playbook ep03/ping.yml, credential lab-ssh. Save, then Launch.",
    "cmd": [],
    "say": "Six: the job template, and this is where it comes together. A job template is a recipe: this playbook, from this project, on this inventory, with this credential, in this execution environment. Launch it, and watch the output stream live.",
    "watch": "Wait for the job to show Successful. If it fails with host key or connection errors, see the troubleshooting list in the README and re-record this step."

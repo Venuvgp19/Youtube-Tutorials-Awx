@@ -1,0 +1,13 @@
+---
+# Episode 3: the playbook our job template runs.
+# It only checks that AWX can reach and log in to every host in the inventory.
+- name: Ep03 - can AWX reach the lab?
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Ping the host
+      ansible.builtin.ping:
+
+    - name: Say who answered
+      ansible.builtin.debug:
+        msg: "AWX reached {{ inventory_hostname }} as {{ ansible_user | default('the credential user') }}"

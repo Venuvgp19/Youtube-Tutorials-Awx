@@ -4,6 +4,10 @@
 
 **Lab / demo:** Org, credential, project, inventory, template, workflow, schedule, EE
 
+**Files:**
+
+- `ping.yml`: the playbook the job template runs (can AWX reach and log in to every host)
+
 Everything is clicked in the AWX UI (`http://192.168.100.102:30080`), built on the lab from [ep02](../ep02/).
 
 ## Before you record (on the VM)
@@ -29,11 +33,11 @@ k3s kubectl -n awx get secret awx-admin-password -o jsonpath='{.data.password}' 
 | 3 | Project (connect the repo) | Resources > Projects | `series-repo`, Git, `https://github.com/Venuvgp19/Youtube-Tutorials-Awx.git`, branch `main`, tick Update revision on job launch |
 | 4 | Inventory | Resources > Inventories | `lab`, host `192.168.100.102` |
 | 5 | Execution environment | Administration > Execution Environments | look at the default `AWX EE (latest)` |
-| 6 | Job template | Resources > Templates | `ping-lab`: project `series-repo`, inventory `lab`, credential `lab-ssh`, playbook `playbooks/ping-test.yml` |
+| 6 | Job template | Resources > Templates | `ping-lab`: project `series-repo`, inventory `lab`, credential `lab-ssh`, playbook `ep03/ping.yml` |
 | 7 | Workflow template | Resources > Templates | `sync-then-ping`: Project Sync `series-repo` -> on success -> `ping-lab` |
 | 8 | Schedule | on `ping-lab` > Schedules | `every-5-min`, frequency Minute, every 5, then switch it off |
 
-The playbook is `playbooks/ping-test.yml` in the repo root.
+The playbook is `ep03/ping.yml` in this folder. The project is the whole repo; the job template picks this one file.
 
 ## Connect the repo to AWX
 
@@ -45,7 +49,7 @@ AWX does not store playbooks. It pulls them from Git through a **project**.
 4. Paste the URL, branch `main`. The repo is public, so no source control credential is needed (private repos: [ep05](../ep05/))
 5. Tick **Update revision on job launch**, then **Save**
 6. Wait for **Successful**. Open the project **Jobs** tab to see the sync (git clone) output
-7. The playbook now shows up in the job template dropdown: `playbooks/ping-test.yml`
+7. The playbook now shows up in the job template dropdown: `ep03/ping.yml`
 
 To pull new commits later, click the sync icon on the project.
 
