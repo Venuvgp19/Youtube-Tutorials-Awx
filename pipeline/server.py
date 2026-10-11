@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Local runner so n8n (even inside Docker) can drive the pipeline over HTTP. No dependencies beyond Python 3.
 
-  python server.py --projects C:\\Users\\you\\Desktop\\YTVideo\\_projects [--host 127.0.0.1] [--port 8787] [--token SECRET]
+  python server.py --projects D:\\Backup\\YTVideo\\_projects [--host 127.0.0.1] [--port 8787] [--token SECRET]
 
   GET  /health
   GET  /project?name=ep03            -> {exists, shots:[...], has_music, files:[...]}

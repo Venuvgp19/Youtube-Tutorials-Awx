@@ -13,7 +13,7 @@ Recording studio for the AWX from Zero series. Teleprompter with commands to typ
    - **Cut**: press at the start and again at the end of a mistake or dead stretch.
    - **Speed**: press at the start and end of a wait (image downloads). Time-lapsed, audio muted.
    - **Zoom / Callout / Note / Mark**: type text first for Callout and Note.
-5. **Stop**, then **Save session folder…** and pick `Desktop\YTVideo\sessions`.
+5. **Stop**, then **Save session folder…** and pick `D:\Backup\YTVideo\_projects` (the n8n pipeline reads from there).
 6. Tell Claude "session ready". It reads `session.json` and `frames/`, runs `tools/plan_edit.py`, adds narration and music, and delivers the video.
 
 Format and editing rules: `SESSION_FORMAT.md`. Add episodes: drop `scripts/epNN.json` in and run `python build.py`, or use "Load script JSON…".
