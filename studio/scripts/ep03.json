@@ -39,7 +39,7 @@
     "nmcli con up \"<host-only connection name>\"",
     "ip -br a"
    ],
-   "say": "Before we touch the AWX screens, we prepare the lab. AWX manages other machines, so one VM is not enough. AWX runs on this one, so we need a second node to manage. The quickest way is to clone the lab VM. Full clone, and generate new MAC addresses, so the two machines do not collide on the network. The clone is a copy, so we make it unique. Give it its own host name, its own machine ID and its own SSH host keys. Then we switch off k3s, because this node does not run AWX, it is only a target. Last, we give it its own address, one nought three. Same network as the first node.",
+   "say": "Before we touch the AWX screens, we prepare the lab. AWX runs on this VM, so we need a second machine for it to manage. In VirtualBox I shut the VM down, right click, Clone. A full clone makes an independent copy of the disk. I tick generate new MAC addresses, so the two machines do not collide on the network. Now the copy needs its own identity. Set hostname gives it the name node two. Removing the machine ID and running systemd machine id setup creates a fresh one, because two machines should never share it. Deleting the SSH host keys and running ssh keygen minus A creates new ones, so each machine has its own fingerprint. Next, systemctl disable now k3s plus the killall script stop Kubernetes. This node does not run AWX, it is only a target. Finally the network. IP dash br a shows the address, which is still the copy of node one. N M C L I connection show lists the connection name. Then connection modify sets a manual address, one nought three, and connection up applies it. One more IP dash br a to confirm it now says one nought three.",
    "watch": "Pause (P) if the clone takes long. Use the real connection name from 'nmcli con show --active' (the one holding 192.168.100.x). Final ip -br a must show 192.168.100.103/24."
   },
   {
@@ -55,7 +55,7 @@
     "visudo -cf /etc/sudoers.d/ansible",
     "su - ansible -c 'sudo whoami'"
    ],
-   "say": "Second prep step: we need an account for AWX to log in with, on the machine it will manage, node two. Never use root for this. We create a user called ansible, give it a password, and give it full sudo rights with no password prompt, because automation cannot type one. Visudo checks the file is valid. And the last command proves it: logged in as ansible, sudo whoami says root. Node one only runs AWX, so it does not need this user. We use it in the credential and the inventory in a moment.",
+   "say": "Second prep step: an account for AWX to log in with, on node two. Never use root for this, a dedicated user is safer and easier to audit. User add creates the ansible user with a home folder and a bash shell. Passwd sets its password. Then we write one line into a sudoers file: ansible may run all commands, with no password prompt, because automation cannot type one. Chmod four four zero locks the file down, sudo requires that. Visudo minus c f checks the syntax, so a typo cannot lock us out. The last command logs in as ansible and runs sudo whoami. It prints root, which proves the account works. Node one only runs AWX, so it does not need this user. We use the account in the credential and the inventory in a moment.",
    "watch": "Last command must print: root. Pause recording while typing the password."
   },
   {
@@ -80,7 +80,7 @@
    "chapter": "Credential",
    "show": "AWX: Resources > Credentials > Add. Name lab-ssh, organization Homelab, credential type Machine, username ansible (the user from Prep 2), password (type it off camera, press P). Privilege escalation method sudo, privilege escalation username root, leave its password empty. Save. Point at the lock icon: the password shows as Encrypted.",
    "cmd": [],
-   "say": "Two: the credential. We give AWX the ansible account we created in the prep. Resources, Credentials, Add. The type is Machine, the username is ansible, and the password goes here. Privilege escalation is sudo, so playbooks can become root when they need to. Save, and look: the password is now Encrypted. AWX never shows it again, and people who can use the credential cannot read it.",
+   "say": "Two: the credential. It holds the login AWX uses on your machines. Resources, Credentials, Add. The name is lab-ssh, in the Homelab organization. The type is Machine, which means a login for a server. Username is ansible, the user from the prep, and the password goes here. Privilege escalation method sudo lets playbooks become root when they need to. Save, and look: the password now says Encrypted. AWX never shows it again, and people who can use the credential cannot read it.",
    "watch": "Do not show the password. Pause recording while you type it, then resume."
   },
   {

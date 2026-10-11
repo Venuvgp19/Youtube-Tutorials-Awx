@@ -38,7 +38,7 @@ AWX runs on node1, and a lab where AWX manages only itself teaches little. Clone
 4. Start both VMs. On the **node2** console, as root, make the copy unique:
 
 ```bash
-hostnamectl set-hostname node2
+hostnamectl set-hostname node2                            # its own name
 rm -f /etc/machine-id && systemd-machine-id-setup         # new machine ID
 rm -f /etc/ssh/ssh_host_* && ssh-keygen -A && systemctl restart sshd   # new SSH host keys
 systemctl disable --now k3s; /usr/local/bin/k3s-killall.sh # node2 is only a target, no AWX
@@ -65,10 +65,10 @@ AWX logs in to your machines with a **machine credential** (added below). Do not
 On the **node2** console, as root:
 
 ```bash
-useradd -m -s /bin/bash ansible
+useradd -m -s /bin/bash ansible                           # user with home folder and bash
 passwd ansible                                            # type a password
 echo 'ansible ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/ansible
-chmod 440 /etc/sudoers.d/ansible
+chmod 440 /etc/sudoers.d/ansible                          # sudo requires strict permissions
 visudo -cf /etc/sudoers.d/ansible                         # must say: parsed OK
 su - ansible -c 'sudo whoami'                             # must print: root
 ```
