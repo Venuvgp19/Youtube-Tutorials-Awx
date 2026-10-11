@@ -24,24 +24,11 @@ Read the admin password if you need it:
 k3s kubectl -n awx get secret awx-admin-password -o jsonpath='{.data.password}' | base64 -d; echo
 ```
 
-## What to build, in order
+## Prepare the lab (before AWX)
 
-| # | Object | Menu | Values |
-|---|--------|------|--------|
-| 1 | Organization | Access > Organizations | `Homelab` |
-| 2a | Second node | VirtualBox + node2 console | clone the lab VM as `awx-node2`, IP `192.168.100.103` |
-| 2b | Linux user | node2 console | `ansible` with sudo on node2 |
-| 2c | Credential | Resources > Credentials | `lab-ssh`, type Machine, user `ansible`, password, privilege escalation `sudo` |
-| 3 | Project (connect the repo) | Resources > Projects | `series-repo`, Git, `https://github.com/Venuvgp19/Youtube-Tutorials-Awx.git`, branch `main`, tick Update revision on job launch |
-| 4 | Inventory | Resources > Inventories | `lab`, host `192.168.100.103` (node2) |
-| 5 | Execution environment | Administration > Execution Environments | look at the default `AWX EE (latest)` |
-| 6 | Job template | Resources > Templates | `ping-lab`: project `series-repo`, inventory `lab`, credential `lab-ssh`, playbook `ep03/ping.yml` |
-| 7 | Workflow template | Resources > Templates | `sync-then-ping`: Project Sync `series-repo` -> on success -> `ping-lab` |
-| 8 | Schedule | on `ping-lab` > Schedules | `every-5-min`, frequency Minute, every 5, then switch it off |
+Two steps outside AWX. Later steps (credential, inventory, job) use them.
 
-The playbook is `ep03/ping.yml` in this folder. The project is the whole repo; the job template picks this one file.
-
-## Make a second node (clone the VM)
+### Prep 1. Make a second node (clone the VM)
 
 AWX runs on node1, and a lab where AWX manages only itself teaches little. Clone the lab VM first, then create the `ansible` user on node2 (next section). node1 only runs AWX and is not managed.
 
@@ -71,7 +58,7 @@ ip -br a                       # must show 192.168.100.103/24
 
 In AWX, add `192.168.100.103` as the only host of the `lab` inventory.
 
-## Create the ansible user (on node2)
+### Prep 2. Create the ansible user (on node2)
 
 AWX logs in to your machines with a **machine credential** (added below). Do not use root for this: create a dedicated account with sudo rights.
 
@@ -88,9 +75,26 @@ su - ansible -c 'sudo whoami'                             # must print: root
 
 `NOPASSWD:ALL` means full sudo with no prompt, which automation needs. Lab only: in production limit the commands.
 
-## Add the credential in AWX
+## What to build in AWX, in order
 
-**Resources > Credentials > Add**
+Do the [lab preparation](#prepare-the-lab-before-awx) first: node2 and the `ansible` user.
+
+| # | Object | Menu | Values |
+|---|--------|------|--------|
+| 1 | Organization | Access > Organizations | `Homelab` |
+| 2 | Credential | Resources > Credentials | `lab-ssh`, type Machine, user `ansible`, password, privilege escalation `sudo` |
+| 3 | Project (connect the repo) | Resources > Projects | `series-repo`, Git, `https://github.com/Venuvgp19/Youtube-Tutorials-Awx.git`, branch `main`, tick Update revision on job launch |
+| 4 | Inventory | Resources > Inventories | `lab`, host `192.168.100.103` (node2) |
+| 5 | Execution environment | Administration > Execution Environments | look at the default `AWX EE (latest)` |
+| 6 | Job template | Resources > Templates | `ping-lab`: project `series-repo`, inventory `lab`, credential `lab-ssh`, playbook `ep03/ping.yml` |
+| 7 | Workflow template | Resources > Templates | `sync-then-ping`: Project Sync `series-repo` -> on success -> `ping-lab` |
+| 8 | Schedule | on `ping-lab` > Schedules | `every-5-min`, frequency Minute, every 5, then switch it off |
+
+The playbook is `ep03/ping.yml` in this folder. The project is the whole repo; the job template picks this one file.
+
+## 2. Add the credential in AWX
+
+The user comes from [Prep 2](#prep-2-create-the-ansible-user-on-node2). **Resources > Credentials > Add**
 
 1. Name `lab-ssh`, organization `Homelab`
 2. Credential type **Machine**

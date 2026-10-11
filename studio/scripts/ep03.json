@@ -24,6 +24,41 @@
    "say": "In episode two we installed AWX. Now you log in and see a wall of menus. Today I map every screen to one of eight objects: organization, credential, project, inventory, job template, workflow, schedule and execution environment. We build all eight on the lab VM, and you run a real job."
   },
   {
+   "id": "node2",
+   "title": "Prep 1. Clone the VM to make a second node",
+   "chapter": "Prepare the lab",
+   "show": "VirtualBox: shut down the lab VM. Right-click it > Clone. Name awx-node2, MAC address policy 'Generate new MAC addresses for all network adapters', Full clone, Current machine state. Then Settings on awx-node2: 1 vCPU, 2048 MB RAM. Start it and log in on the console as root. Run the commands one by one. Check node2 shows 192.168.100.103, then start the lab VM again.",
+   "cmd": [
+    "hostnamectl set-hostname node2",
+    "rm -f /etc/machine-id && systemd-machine-id-setup",
+    "rm -f /etc/ssh/ssh_host_* && ssh-keygen -A && systemctl restart sshd",
+    "systemctl disable --now k3s; /usr/local/bin/k3s-killall.sh",
+    "ip -br a",
+    "nmcli con show --active",
+    "nmcli con mod \"<host-only connection name>\" ipv4.method manual ipv4.addresses 192.168.100.103/24",
+    "nmcli con up \"<host-only connection name>\"",
+    "ip -br a"
+   ],
+   "say": "Before we touch the AWX screens, we prepare the lab. AWX manages other machines, so one VM is not enough. AWX runs on this one, so we need a second node to manage. The quickest way is to clone the lab VM. Full clone, and generate new MAC addresses, so the two machines do not collide on the network. The clone is a copy, so we make it unique. Give it its own host name, its own machine ID and its own SSH host keys. Then we switch off k3s, because this node does not run AWX, it is only a target. Last, we give it its own address, one nought three. Same network as the first node.",
+   "watch": "Pause (P) if the clone takes long. Use the real connection name from 'nmcli con show --active' (the one holding 192.168.100.x). Final ip -br a must show 192.168.100.103/24."
+  },
+  {
+   "id": "user",
+   "title": "Prep 2. Create the ansible user on node2",
+   "chapter": "Prepare the lab",
+   "show": "Terminal on node2 (VirtualBox console, or ssh root@192.168.100.103), as root. Run the commands one by one. Type the password off camera (press P to pause) when passwd asks.",
+   "cmd": [
+    "useradd -m -s /bin/bash ansible",
+    "passwd ansible",
+    "echo 'ansible ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/ansible",
+    "chmod 440 /etc/sudoers.d/ansible",
+    "visudo -cf /etc/sudoers.d/ansible",
+    "su - ansible -c 'sudo whoami'"
+   ],
+   "say": "Second prep step: we need an account for AWX to log in with, on the machine it will manage, node two. Never use root for this. We create a user called ansible, give it a password, and give it full sudo rights with no password prompt, because automation cannot type one. Visudo checks the file is valid. And the last command proves it: logged in as ansible, sudo whoami says root. Node one only runs AWX, so it does not need this user. We use it in the credential and the inventory in a moment.",
+   "watch": "Last command must print: root. Pause recording while typing the password."
+  },
+  {
    "id": "menu",
    "title": "The eight objects on the menu",
    "chapter": "The big picture",
@@ -40,47 +75,12 @@
    "say": "One: the organization. It is the top level container. Everything below belongs to an organization, and permissions are handed out per organization. We keep Default untouched and create Homelab."
   },
   {
-   "id": "node2",
-   "title": "2a. Clone the VM to make a second node",
-   "chapter": "Credential",
-   "show": "VirtualBox: shut down the lab VM. Right-click it > Clone. Name awx-node2, MAC address policy 'Generate new MAC addresses for all network adapters', Full clone, Current machine state. Then Settings on awx-node2: 1 vCPU, 2048 MB RAM. Start it and log in on the console as root. Run the commands one by one. Check node2 shows 192.168.100.103, then start the lab VM again.",
-   "cmd": [
-    "hostnamectl set-hostname node2",
-    "rm -f /etc/machine-id && systemd-machine-id-setup",
-    "rm -f /etc/ssh/ssh_host_* && ssh-keygen -A && systemctl restart sshd",
-    "systemctl disable --now k3s; /usr/local/bin/k3s-killall.sh",
-    "ip -br a",
-    "nmcli con show --active",
-    "nmcli con mod \"<host-only connection name>\" ipv4.method manual ipv4.addresses 192.168.100.103/24",
-    "nmcli con up \"<host-only connection name>\"",
-    "ip -br a"
-   ],
-   "say": "AWX manages other machines, so one VM is not enough. AWX runs on this one, so we need a second node to manage. The quickest way is to clone the lab VM. Full clone, and generate new MAC addresses, so the two machines do not collide on the network. The clone is a copy, so we make it unique. Give it its own host name, its own machine ID and its own SSH host keys. Then we switch off k3s, because this node does not run AWX, it is only a target. Last, we give it its own address, one nought three. Same network as the first node.",
-   "watch": "Pause (P) if the clone takes long. Use the real connection name from 'nmcli con show --active' (the one holding 192.168.100.x). Final ip -br a must show 192.168.100.103/24."
-  },
-  {
-   "id": "user",
-   "title": "2b. Create the ansible user on node2",
-   "chapter": "Credential",
-   "show": "Terminal on node2 (VirtualBox console, or ssh root@192.168.100.103), as root. Run the commands one by one. Type the password off camera (press P to pause) when passwd asks.",
-   "cmd": [
-    "useradd -m -s /bin/bash ansible",
-    "passwd ansible",
-    "echo 'ansible ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/ansible",
-    "chmod 440 /etc/sudoers.d/ansible",
-    "visudo -cf /etc/sudoers.d/ansible",
-    "su - ansible -c 'sudo whoami'"
-   ],
-   "say": "Before the credential, we need an account for AWX to log in with, on the machine it will manage, node two. Never use root for this. We create a user called ansible, give it a password, and give it full sudo rights with no password prompt, because automation cannot type one. Visudo checks the file is valid. And the last command proves it: logged in as ansible, sudo whoami says root. Node one only runs AWX, so it does not need this user.",
-   "watch": "Last command must print: root. Pause recording while typing the password."
-  },
-  {
    "id": "cred",
-   "title": "2c. Credential (add it to AWX)",
+   "title": "2. Credential",
    "chapter": "Credential",
-   "show": "AWX: Resources > Credentials > Add. Name lab-ssh, organization Homelab, credential type Machine, username ansible, password (type it off camera, press P). Privilege escalation method sudo, privilege escalation username root, leave its password empty. Save. Point at the lock icon: the password shows as Encrypted.",
+   "show": "AWX: Resources > Credentials > Add. Name lab-ssh, organization Homelab, credential type Machine, username ansible (the user from Prep 2), password (type it off camera, press P). Privilege escalation method sudo, privilege escalation username root, leave its password empty. Save. Point at the lock icon: the password shows as Encrypted.",
    "cmd": [],
-   "say": "Now we give AWX that account. Resources, Credentials, Add. The type is Machine, the username is ansible, and the password goes here. Privilege escalation is sudo, so playbooks can become root when they need to. Save, and look: the password is now Encrypted. AWX never shows it again, and people who can use the credential cannot read it.",
+   "say": "Two: the credential. We give AWX the ansible account we created in the prep. Resources, Credentials, Add. The type is Machine, the username is ansible, and the password goes here. Privilege escalation is sudo, so playbooks can become root when they need to. Save, and look: the password is now Encrypted. AWX never shows it again, and people who can use the credential cannot read it.",
    "watch": "Do not show the password. Pause recording while you type it, then resume."
   },
   {
@@ -105,9 +105,9 @@
    "id": "inv",
    "title": "4. Inventory",
    "chapter": "Inventory",
-   "show": "Resources > Inventories > Add > Add inventory. Name lab, organization Homelab. Save. Then Hosts > Add: name 192.168.100.103 (node2). Save.",
+   "show": "Resources > Inventories > Add > Add inventory. Name lab, organization Homelab. Save. Then Hosts > Add: name 192.168.100.103 (node2 from the prep). Save.",
    "cmd": [],
-   "say": "Four: the inventory. It is the list of machines a job can touch. Here it is one host, node two, the machine we cloned. AWX itself stays on node one. Later episodes use groups, variables and dynamic sources like AWS.",
+   "say": "Four: the inventory. It is the list of machines a job can touch. Here it is one host, node two, the machine we cloned in the prep. AWX itself stays on node one. Later episodes use groups, variables and dynamic sources like AWS.",
    "watch": "Host must be 192.168.100.103, not the AWX node."
   },
   {
