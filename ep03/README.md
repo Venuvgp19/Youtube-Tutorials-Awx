@@ -6,7 +6,7 @@
 
 **Files:**
 
-- `ping.yml`: the playbook the job template runs (can AWX reach and log in to every host)
+- `ping.yml`: the playbook the job template runs (can AWX reach every host, and does the `ansible` user get root through sudo)
 
 Everything is clicked in the AWX UI (`http://192.168.100.102:30080`), built on the lab from [ep02](../ep02/).
 
@@ -15,7 +15,7 @@ Everything is clicked in the AWX UI (`http://192.168.100.102:30080`), built on t
 ```bash
 k3s kubectl -n awx get pods                      # all Running or Completed
 systemctl is-active sshd                         # active
-grep -i '^PermitRootLogin' /etc/ssh/sshd_config  # PermitRootLogin yes (lab only)
+grep -i '^PasswordAuthentication' /etc/ssh/sshd_config  # must not say no
 ```
 
 Read the admin password if you need it (do not show it on screen):
@@ -29,7 +29,7 @@ k3s kubectl -n awx get secret awx-admin-password -o jsonpath='{.data.password}' 
 | # | Object | Menu | Values |
 |---|--------|------|--------|
 | 1 | Organization | Access > Organizations | `Homelab` |
-| 2 | Credential | Resources > Credentials | `lab-ssh`, type Machine, user `root`, password |
+| 2 | Credential | Resources > Credentials | `lab-ssh`, type Machine, user `ansible`, password, privilege escalation `sudo` |
 | 3 | Project (connect the repo) | Resources > Projects | `series-repo`, Git, `https://github.com/Venuvgp19/Youtube-Tutorials-Awx.git`, branch `main`, tick Update revision on job launch |
 | 4 | Inventory | Resources > Inventories | `lab`, host `192.168.100.102` |
 | 5 | Execution environment | Administration > Execution Environments | look at the default `AWX EE (latest)` |
@@ -38,6 +38,42 @@ k3s kubectl -n awx get secret awx-admin-password -o jsonpath='{.data.password}' 
 | 8 | Schedule | on `ping-lab` > Schedules | `every-5-min`, frequency Minute, every 5, then switch it off |
 
 The playbook is `ep03/ping.yml` in this folder. The project is the whole repo; the job template picks this one file.
+
+## Create the ansible user and add the credential
+
+AWX logs in to your machines with a **machine credential**. Do not use root for this: create a dedicated account with sudo rights.
+
+On the VM, as root:
+
+```bash
+useradd -m -s /bin/bash ansible
+passwd ansible                                            # type a password (do not show it on camera)
+echo 'ansible ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/ansible
+chmod 440 /etc/sudoers.d/ansible
+visudo -cf /etc/sudoers.d/ansible                         # must say: parsed OK
+su - ansible -c 'sudo whoami'                             # must print: root
+```
+
+`NOPASSWD:ALL` means full sudo with no prompt, which automation needs. Lab only: in production limit the commands.
+
+Then in AWX: **Resources > Credentials > Add**
+
+1. Name `lab-ssh`, organization `Homelab`
+2. Credential type **Machine**
+3. Username `ansible`, password
+4. Privilege escalation method `sudo`, username `root`, leave the password empty
+5. **Save**. The password now shows as **Encrypted**: AWX never shows it again
+
+When you build the job template, tick **Privilege escalation**. The playbook's last task runs `whoami` with sudo and prints `root`.
+
+SSH key instead of a password (optional, also covered in [ep05](../ep05/)):
+
+```bash
+su - ansible -c "ssh-keygen -t ed25519 -N '' -f ~/.ssh/id_ed25519 && cat ~/.ssh/id_ed25519.pub >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+cat /home/ansible/.ssh/id_ed25519      # paste into a credential of type Machine, field SSH Private Key
+```
+
+Never show the private key on camera.
 
 ## Connect the repo to AWX
 
@@ -60,7 +96,8 @@ To pull new commits later, click the sync icon on the project.
 | Project sync fails | No internet from the pod | Check NIC 2 (NAT) and `curl https://github.com` on the VM |
 | Playbook not in the dropdown | Project not synced yet | Wait for the green Successful status, then reload |
 | Job fails: unreachable, connection timed out | Pod cannot reach the host | Check `firewall-cmd --zone=trusted --list-sources` shows 10.42.0.0/16 and 10.43.0.0/16 |
-| Job fails: permission denied | Wrong password or root login off | Set `PermitRootLogin yes`, `systemctl restart sshd`, fix the credential |
+| Job fails: permission denied | Wrong password, or `PasswordAuthentication no` | Re-enter the password in the credential; set `PasswordAuthentication yes`, `systemctl restart sshd` |
+| Last task fails: sudo asks for a password | Sudoers file missing | Recreate `/etc/sudoers.d/ansible` (see above) and tick Privilege escalation on the template |
 | Job fails: host key verification failed | Host key checking on | Set extra variable `ansible_ssh_common_args: '-o StrictHostKeyChecking=no'` on the inventory (lab only) |
 
 Teleprompter script for AWX Studio: `studio/scripts/ep03.json`.

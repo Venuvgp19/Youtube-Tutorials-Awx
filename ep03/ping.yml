@@ -1,13 +1,20 @@
 ---
 # Episode 3: the playbook our job template runs.
-# It only checks that AWX can reach and log in to every host in the inventory.
-- name: Ep03 - can AWX reach the lab?
+# 1) ping: can AWX reach and log in to every host in the inventory
+# 2) whoami with become: proves the ansible user has full (sudo) access
+- name: Ep03 - can AWX reach the lab and become root?
   hosts: all
   gather_facts: false
   tasks:
     - name: Ping the host
       ansible.builtin.ping:
 
+    - name: Who are we after sudo
+      ansible.builtin.command: whoami
+      become: true
+      changed_when: false
+      register: who
+
     - name: Say who answered
       ansible.builtin.debug:
-        msg: "AWX reached {{ inventory_hostname }} as {{ ansible_user | default('the credential user') }}"
+        msg: "AWX reached {{ inventory_hostname }} as {{ ansible_user | default('the credential user') }} and became {{ who.stdout }}"
