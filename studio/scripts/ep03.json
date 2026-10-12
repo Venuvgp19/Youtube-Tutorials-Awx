@@ -141,7 +141,7 @@
    "chapter": "Schedule",
    "show": "Open job template ping-lab > Schedules > Add. Name every-5-min, start now, frequency Minute, every 5. Save and point at the Next run time. Then turn the toggle off.",
    "cmd": [],
-   "say": "Eight: the schedule. Any template can run on a timer. Pick a start time and a frequency, and AWX launches it for you. I turn it off now, so it does not spam the lab.",
+   "say": "Eight: the schedule. Any template can run on a timer. Pick a start time and a frequency, and AWX launches it for you. It runs on its own every five minutes. When you are done, switch the toggle off, so it does not keep launching jobs in your lab.",
    "watch": "Turn the schedule off before moving on, or it keeps launching jobs."
   },
   {
