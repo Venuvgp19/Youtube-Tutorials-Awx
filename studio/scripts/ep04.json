@@ -1,0 +1,125 @@
+{
+  "schema": "awx-script/1",
+  "episode": 4,
+  "slug": "ep04-your-first-job",
+  "title": "Your first job: Git project to job template",
+  "target_minutes": "12-15 raw, about 8-10 after cuts",
+  "preflight": [
+    "Lab VMs running: AWX node (192.168.100.102) and node2 (192.168.100.103). Open http://192.168.100.102:30080 and log in as admin",
+    "Episode 3 objects exist: Homelab org, lab-ssh credential, series-repo project, Lab inventory, ping-lab template. If not, rebuild them first",
+    "Switch the every-5-min schedule OFF (Schedules list, toggle) so it does not interrupt the recording",
+    "ep04 folder is pushed to GitHub main (packages.yml and ping.yml). Do NOT sync series-repo yet: you sync it on camera",
+    "Delete the baseline-packages template if it is left from a test",
+    "On node2, tmux and vim-enhanced must be absent: dnf remove -y tmux vim-enhanced. Node2 needs internet (NAT NIC) to download packages",
+    "Browser at 100 percent zoom, dark theme, one clean tab, bookmarks bar hidden. PuTTY font large enough to read",
+    "Do not show the admin password. Pause with P if you type it"
+  ],
+  "steps": [
+    {
+      "id": "open",
+      "title": "Open",
+      "chapter": "Intro",
+      "show": "AWX dashboard, logged in as admin.",
+      "cmd": [],
+      "say": "In episode three we built all eight objects. Today we use them. You write a playbook in Git, AWX pulls it, and you launch it from the UI. We do a safe dry run first, then the real run, then a second run to see what idempotent means. By the end you can launch any playbook from a Git repo on any machine in your inventory."
+    },
+    {
+      "id": "recap",
+      "title": "What we already have",
+      "chapter": "Recap",
+      "show": "AWX: Resources > Projects, Inventories, Credentials, Templates in turn. Show series-repo, Lab, lab-ssh and ping-lab. Keep each on screen two seconds.",
+      "cmd": [],
+      "say": "Quick check of what exists. The project series-repo points at my Git repo. The inventory Lab has one host, node two. The credential lab-ssh is the login. And the template ping-lab already ran once. Today we add a second playbook to the same repo and a second template that uses all of these."
+    },
+    {
+      "id": "repo",
+      "title": "The playbook in Git",
+      "chapter": "Playbook",
+      "show": "Browser tab: github.com/Venuvgp19/Youtube-Tutorials-Awx > ep04. Open packages.yml and scroll slowly through it: hosts all, become true, dnf installs tmux, vim-enhanced, chrony, service chronyd started and enabled. Then open ping.yml for two seconds.",
+      "cmd": [],
+      "say": "Here is the repo, folder ep zero four. Two playbooks. ping dot yml only tests the connection. packages dot yml is the real one. It runs on all hosts, becomes root, installs tmux, vim and chrony with the dnf module, and makes sure chronyd is started and enabled. Notice the word state present. It means make sure it is there, not install it again. That one word is why you can run it ten times safely."
+    },
+    {
+      "id": "before",
+      "title": "State of node2 before",
+      "chapter": "Before",
+      "show": "Terminal on node2 (PuTTY, ssh root@192.168.100.103). Run the commands and show the output.",
+      "cmd": [
+        "rpm -q tmux vim-enhanced chrony",
+        "systemctl is-active chronyd"
+      ],
+      "say": "Before we run anything, let me look at node two. I check whether the three packages are installed, and whether chronyd is running. tmux and vim are missing. This is our starting point, so we can prove AWX changed something.",
+      "watch": "tmux and vim-enhanced must say 'not installed'. If they are installed, run: dnf remove -y tmux vim-enhanced"
+    },
+    {
+      "id": "sync",
+      "title": "Sync the project",
+      "chapter": "Project",
+      "show": "AWX: Resources > Projects. Click the sync icon next to series-repo. Wait for the status to turn Successful and the Revision to change. Click the project name, open the Jobs tab, show the sync job.",
+      "cmd": [],
+      "say": "AWX does not watch Git live. The project has to sync first. I click the sync icon next to series-repo. AWX runs a small job that pulls the repo, and the status turns Successful with a new revision. Now AWX can see the ep zero four folder. If you ever push a playbook and it is missing in AWX, you forgot to sync."
+    },
+    {
+      "id": "tmpl",
+      "title": "Create the job template",
+      "chapter": "Job template",
+      "show": "AWX: Resources > Templates > Add > Add job template. Name baseline-packages. Job type Check. Inventory Lab. Project series-repo. Execution environment AWX EE (latest). Playbook ep04/packages.yml. Credentials lab-ssh. Verbosity 1 (Verbose). Check Privilege escalation. Save.",
+      "cmd": [],
+      "say": "Now the job template. Resources, Templates, Add. The name is baseline-packages. The job type is Check, and that is important. Check means a dry run: AWX asks Ansible what would change without changing anything. Inventory is Lab. Project is series-repo. Execution environment is the AWX EE. The playbook dropdown now lists ep zero four slash packages dot yml, because we synced. Credential is lab-ssh. Verbosity one gives a little more detail in the output. Privilege escalation on, because installing packages needs root. Save.",
+      "watch": "Job type must be Check for the first run."
+    },
+    {
+      "id": "check",
+      "title": "Run it in check mode",
+      "chapter": "Dry run",
+      "show": "AWX: click Launch. The Output tab opens. Wait for Successful. Point at the play recap: changed=1 or more, and the yellow changed lines on the dnf task. Then switch to node2 terminal and run rpm -q tmux again to prove nothing was installed.",
+      "cmd": [
+        "rpm -q tmux"
+      ],
+      "say": "Launch. The output opens live. The install task is yellow, which means changed. But this is a check run, so nothing happened. The recap says what would change. To prove it, I go back to node two and ask for tmux again. Still not installed. That is the safety net: you can test a change before you make it."
+    },
+    {
+      "id": "run",
+      "title": "Switch to Run and launch",
+      "chapter": "Real run",
+      "show": "AWX: Templates > baseline-packages > Edit. Change Job type to Run. Save. Launch. Watch the output, point at each task, then the play recap with changed greater than 0 and failed=0. Click the Details tab: show status, duration, who launched it, the credential and the project revision.",
+      "cmd": [],
+      "say": "Now the real run. I edit the template and change the job type from Check to Run. Save, Launch. Watch the tasks go by. Gathering facts, install tools, keep time in sync. The recap shows changed, failed zero. That is success. The Details tab is the receipt: who launched it, when, how long, which credential, which project revision. Every job is saved like this, forever."
+    },
+    {
+      "id": "verify",
+      "title": "Verify on node2",
+      "chapter": "Verify",
+      "show": "Terminal on node2. Run the commands. Show that tmux and vim-enhanced have versions and chronyd is active.",
+      "cmd": [
+        "rpm -q tmux vim-enhanced chrony",
+        "systemctl is-active chronyd"
+      ],
+      "say": "Back to node two. The packages have versions now, and chronyd is active. AWX really did the work over SSH."
+    },
+    {
+      "id": "again",
+      "title": "Run it again: idempotent",
+      "chapter": "Idempotent",
+      "show": "AWX: Views > Jobs, open baseline-packages job. In the job output click the rocket icon (Relaunch). Wait. Show the play recap: ok greater than 0, changed=0. Compare with the first run.",
+      "cmd": [],
+      "say": "Now the second run. I relaunch the same job. Look at the recap this time: changed zero. Everything was already in the state we asked for, so Ansible did nothing. That is idempotent. You can run a playbook every night and it only touches what drifted."
+    },
+    {
+      "id": "jobs",
+      "title": "The jobs list",
+      "chapter": "Jobs",
+      "show": "AWX: Views > Jobs. Show the list with the three runs, the check run, the real run, the relaunch. Click the filter and show Failed. Open one and use the output search box once.",
+      "cmd": [],
+      "say": "All the runs live under Views, Jobs. Each has a status, a start time, and the template that created it. When something fails at three in the morning, this is where you start. Open the job, search the output, and you will see exactly which task failed on which host."
+    },
+    {
+      "id": "close",
+      "title": "Close",
+      "chapter": "Wrap up",
+      "show": "Dashboard.",
+      "cmd": [],
+      "say": "That is your first real job: playbook in Git, project sync, job template, a check run, a real run, and an idempotent second run. Next time we protect the credentials with a vault and learn how AWX keeps secrets. All the files are in the repo, in the ep zero four folder. Thanks for watching, and see you in the next one."
+    }
+  ]
+}
