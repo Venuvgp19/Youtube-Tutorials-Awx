@@ -1,0 +1,136 @@
+{
+ "schema": "awx-script/1",
+ "episode": 5,
+ "slug": "ep05-credentials-and-vault",
+ "title": "Credentials and Ansible Vault",
+ "target_minutes": "12-15 raw, about 9-10 after cuts",
+ "preflight": [
+  "Lab VMs running: AWX node (192.168.100.102) and node2 (192.168.100.103). Open http://192.168.100.102:30080 and log in as admin",
+  "Episode 3 and 4 objects exist: Homelab org, lab-ssh credential, series-repo project, Lab inventory. If not, rebuild them first",
+  "Switch the every-5-min schedule OFF (Schedules list, toggle) so it does not interrupt the recording",
+  "ep05 folder is on GitHub main (use-secret.yml, use-token.yml, credential-type/) but secrets.yml must NOT exist yet: you create and push it on camera",
+  "Terminal on the AWX node VM with the repo cloned and git push working (credential saved beforehand so no token is shown). ansible-vault installed: sudo dnf install -y ansible-core",
+  "Delete from a previous test: credentials lab-vault and demo-token, credential type App API token, templates use-vault-secret and use-token",
+  "Browser at 100 percent zoom, dark theme, one clean tab, bookmarks bar hidden. Terminal font large enough to read",
+  "Passwords: never on screen. Press P (pause) before typing the vault password, the Vault credential password or any Git token"
+ ],
+ "steps": [
+  {
+   "id": "open",
+   "title": "Open",
+   "chapter": "Intro",
+   "show": "AWX dashboard, logged in as admin.",
+   "cmd": [],
+   "say": "In episode four we ran a playbook with the credential lab-ssh. But real jobs need more secrets: database passwords, API tokens, Git logins. The rule is simple. A secret never goes into Git in plain text. Today you learn the three ways AWX keeps secrets safe: the Machine credential, an encrypted Vault variable, and your own custom credential type. By the end you run jobs that use secrets nobody can read."
+  },
+  {
+   "id": "recap",
+   "title": "What credentials are",
+   "chapter": "Recap",
+   "show": "AWX: Resources > Credentials. Show lab-ssh, click it, point at the encrypted password field. Then Administration > Credential Types, scroll the built-in list for two seconds.",
+   "cmd": [],
+   "say": "A credential in AWX is a safe box. You type the secret once, AWX encrypts it, and after that nobody can read it back, not even you. See the password field on lab-ssh: it only says encrypted. Jobs get the secret when they run, and it never shows in the output. Credentials have types, and AWX ships with dozens: Machine, Source Control, Vault, cloud logins. If your type is missing, you can build one. We will do that at the end."
+  },
+  {
+   "id": "problem",
+   "title": "Why not secrets in Git",
+   "chapter": "Problem",
+   "show": "Browser: github.com/Venuvgp19/Youtube-Tutorials-Awx > ep05. Open use-secret.yml and point at vars_files secrets.yml. Do not show any password.",
+   "cmd": [],
+   "say": "Look at this playbook. It reads a variable called app db password from a file named secrets dot yml. If I wrote the password in that file in plain text and pushed it, anyone with access to the repo, and every old commit, could read it. Git remembers forever. So we encrypt the value first with Ansible Vault, and only the encrypted text goes into Git."
+  },
+  {
+   "id": "vault",
+   "title": "Encrypt a value with Vault",
+   "chapter": "Vault",
+   "show": "Terminal on the AWX node (ssh as your lab user), in the cloned repo folder ep05. Run ansible-vault encrypt_string. It asks for a new vault password twice: PAUSE with P before typing it, resume after. Then cat secrets.yml to show the encrypted block.",
+   "cmd": [
+    "cd ~/Youtube-Tutorials-Awx/ep05",
+    "ansible-vault encrypt_string 'S3cret-demo' --name app_db_password > secrets.yml",
+    "cat secrets.yml"
+   ],
+   "say": "On any machine with Ansible installed, we run ansible vault encrypt string. The value is S3cret dash demo, the variable name is app db password, and the output goes into secrets dot yml. It asks me for a vault password, which is the key to the lock. I type it twice. Now cat the file. Instead of the secret we see a block that starts with exclamation vault and a long line of hex. That is safe to commit. Without the vault password it is useless.",
+   "watch": "Pause (P) before typing the vault password. cat secrets.yml must show '!vault |' and hex, not S3cret-demo. If ansible-vault is missing: sudo dnf install -y ansible-core"
+  },
+  {
+   "id": "push",
+   "title": "Push it to Git",
+   "chapter": "Git",
+   "show": "Same terminal. Run git add, git commit and git push for ep05/secrets.yml. Then refresh the GitHub tab and open secrets.yml to show the encrypted block.",
+   "cmd": [
+    "git add secrets.yml",
+    "git commit -m 'ep05: vaulted secret'",
+    "git push"
+   ],
+   "say": "Now commit it like any other file. Git add, commit, push. On GitHub, open secrets dot yml: the whole world can see this, and nobody can read it. This is the pattern. The encrypted value lives in Git with the playbook, and the key to unlock it lives only in AWX.",
+   "watch": "git push may ask for a token. Do not show it on screen: pause with P."
+  },
+  {
+   "id": "vcred",
+   "title": "Create the Vault credential",
+   "chapter": "Vault credential",
+   "show": "AWX: Resources > Credentials > Add. Name lab-vault. Credential type Vault. Organization Homelab. Type the vault password into the Vault password field (PAUSE with P first). Save. Show the field now says encrypted.",
+   "cmd": [],
+   "say": "Now the key. Credentials, Add. The name is lab vault. The type is Vault. I paste the same vault password I used a minute ago. Save. See: the field now only says encrypted. AWX will use this key at run time to unlock the secret in the playbook, and I can never read it back.",
+   "watch": "Pause (P) while typing the vault password. Same password as in the ansible-vault step."
+  },
+  {
+   "id": "sync",
+   "title": "Sync the project",
+   "chapter": "Project",
+   "show": "AWX: Resources > Projects. Click the sync icon next to series-repo. Wait for Successful and a new Revision.",
+   "cmd": [],
+   "say": "AWX does not watch Git live, so again: sync the project first. The status turns Successful with a new revision, and now the ep zero five folder is visible."
+  },
+  {
+   "id": "tmpl",
+   "title": "Create the vault template",
+   "chapter": "Job template",
+   "show": "AWX: Resources > Templates > Add > Add job template. Name use-vault-secret. Job type Run. Inventory Lab. Project series-repo. Execution environment AWX EE (latest). Playbook ep05/use-secret.yml. Credentials: add lab-vault. Verbosity 1. Save.",
+   "cmd": [],
+   "say": "New job template, called use vault secret. Run, inventory Lab, project series-repo, the AWX execution environment. The playbook is ep zero five slash use secret dot yml. And under credentials I add lab vault. This playbook runs on localhost inside the execution environment, so it does not need the SSH credential. Save.",
+   "watch": "Credentials: pick the Vault type in the first dropdown, then lab-vault."
+  },
+  {
+   "id": "run",
+   "title": "Launch and prove it",
+   "chapter": "Run",
+   "show": "AWX: click Launch. Wait for Successful. Point at the debug line: app_db_password is 11 characters long. Open the Details tab: credentials shows lab-vault. Search the output for S3cret: it is not there.",
+   "cmd": [],
+   "say": "Launch. The task says app db password is eleven characters long. Eleven is exactly the length of the secret, so Ansible decrypted it. But look: the playbook printed the length, never the value. And even if a task tried to print it, AWX would mask it. The Details tab shows the credential lab vault was used. Secret in Git, key in AWX, nothing readable in between."
+  },
+  {
+   "id": "ctype",
+   "title": "Build a custom credential type",
+   "chapter": "Custom type",
+   "show": "AWX: Administration > Credential Types > Add. Name App API token. Paste the Input configuration from ep05/credential-type/input.yml (set the YAML toggle) and the Injector configuration from injector.yml. Save.",
+   "cmd": [],
+   "say": "The last piece. Suppose your app needs an API token and AWX has no credential type for it. Administration, Credential Types, Add. Name it app API token. The input configuration says: one field called api token, it is a string, and it is secret. The injector configuration says: give that value to the job as an environment variable named APP API TOKEN. Save. Now AWX has a new kind of safe box.",
+   "watch": "Copy the YAML from the repo files, do not retype it."
+  },
+  {
+   "id": "tcred",
+   "title": "Create a token credential",
+   "chapter": "Token credential",
+   "show": "AWX: Resources > Credentials > Add. Name demo-token. Credential type App API token. Organization Homelab. Token: demo-token-12345. Save.",
+   "cmd": [],
+   "say": "Create a credential of that new type. Name demo token, type app API token, and the token is demo token one two three four five. A fake one, of course. Save, and the field is encrypted like all the others."
+  },
+  {
+   "id": "tuse",
+   "title": "Use the token in a template",
+   "chapter": "Token run",
+   "show": "AWX: Templates > Add job template. Name use-token. Run. Inventory Lab. Project series-repo. Playbook ep05/use-token.yml. Credentials: add demo-token. Save and Launch. Point at: APP_API_TOKEN is 16 characters long.",
+   "cmd": [],
+   "say": "One more template, use token. Playbook use token dot yml, and the credential is demo token. Launch. The playbook reads the environment variable and prints its length: sixteen characters. AWX injected the secret into the job without it ever touching the playbook or Git."
+  },
+  {
+   "id": "close",
+   "title": "Wrap up",
+   "chapter": "Wrap up",
+   "show": "AWX: Resources > Credentials list, showing lab-ssh, lab-vault and demo-token.",
+   "cmd": [],
+   "say": "Quick recap. A credential is an encrypted safe box. Vault lets you keep encrypted values in Git while the key stays in AWX. And a custom credential type lets AWX hand any secret to any job. Next episode we look at inventories properly: groups, variables and dynamic sources. The commands for this episode are in the ep zero five folder of my GitHub repo. If this helped, subscribe, and I will see you in the next one."
+  }
+ ]
+}
