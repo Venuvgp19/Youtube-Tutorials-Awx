@@ -9,10 +9,10 @@
   "Episode 3 and 4 objects exist: Homelab org, lab-ssh credential, series-repo project, Lab inventory. If not, rebuild them first",
   "Switch the every-5-min schedule OFF (Schedules list, toggle) so it does not interrupt the recording",
   "ep05 folder is on GitHub main (use-secret.yml, use-token.yml, credential-type/) but secrets.yml must NOT exist yet: you create and push it on camera",
-  "Terminal on the AWX node VM with the repo cloned and git push working (credential saved beforehand so no token is shown). ansible-vault installed: sudo dnf install -y ansible-core",
+  "BEFORE recording, on the AWX node VM install Ansible (not installed by default): sudo dnf install -y ansible-core. Check: ansible-vault --version. If dnf has no package: python3 -m venv ~/v && ~/v/bin/pip install ansible-core && export PATH=~/v/bin:$PATH",
   "Delete from a previous test: credentials lab-vault and demo-token, credential type App API token, templates use-vault-secret and use-token",
   "Browser at 100 percent zoom, dark theme, one clean tab, bookmarks bar hidden. Terminal font large enough to read",
-  "Passwords: never on screen. Press P (pause) before typing the vault password, the Vault credential password or any Git token"
+  "Passwords: never on screen. Press P (pause) before typing the vault password or the Vault credential password. Logged in to GitHub in the browser; hide the profile menu"
  ],
  "steps": [
   {
@@ -43,27 +43,22 @@
    "id": "vault",
    "title": "Encrypt a value with Vault",
    "chapter": "Vault",
-   "show": "Terminal on the AWX node (ssh as your lab user), in the cloned repo folder ep05. Run ansible-vault encrypt_string. It asks for a new vault password twice: PAUSE with P before typing it, resume after. Then cat secrets.yml to show the encrypted block.",
+   "show": "Terminal (PuTTY) on the AWX node VM. Run the encrypt command. It asks for a New Vault password and a Confirm: PAUSE with P before typing, resume after. The encrypted block prints on screen. Select it with the mouse (PuTTY copies on select) and keep it for the next step.",
    "cmd": [
-    "cd ~/Youtube-Tutorials-Awx/ep05",
-    "ansible-vault encrypt_string 'S3cret-demo' --name app_db_password > secrets.yml",
-    "cat secrets.yml"
+    "ansible-vault --version",
+    "ansible-vault encrypt_string 'S3cret-demo' --name app_db_password"
    ],
-   "say": "On any machine with Ansible installed, we run ansible vault encrypt string. The value is S3cret dash demo, the variable name is app db password, and the output goes into secrets dot yml. It asks me for a vault password, which is the key to the lock. I type it twice. Now cat the file. Instead of the secret we see a block that starts with exclamation vault and a long line of hex. That is safe to commit. Without the vault password it is useless.",
-   "watch": "Pause (P) before typing the vault password. cat secrets.yml must show '!vault |' and hex, not S3cret-demo. If ansible-vault is missing: sudo dnf install -y ansible-core"
+   "say": "On any machine with Ansible installed, we run ansible vault encrypt string. The value is S3cret dash demo, and the variable name is app db password. It asks me for a vault password, which is the key to the lock. I type it twice. Instead of the secret, the output is a block that starts with app db password colon exclamation vault, and a long line of hex. That is safe to put in Git. Without the vault password it is useless. I select it, so it is copied.",
+   "watch": "Pause (P) before typing the vault password, resume after 'Encryption successful'. Output must show '!vault |' and hex, not S3cret-demo. If the command is not found, finish the preflight install first. Use exactly this password again in the AWX Vault credential."
   },
   {
    "id": "push",
-   "title": "Push it to Git",
+   "title": "Add it to Git",
    "chapter": "Git",
-   "show": "Same terminal. Run git add, git commit and git push for ep05/secrets.yml. Then refresh the GitHub tab and open secrets.yml to show the encrypted block.",
-   "cmd": [
-    "git add secrets.yml",
-    "git commit -m 'ep05: vaulted secret'",
-    "git push"
-   ],
-   "say": "Now commit it like any other file. Git add, commit, push. On GitHub, open secrets dot yml: the whole world can see this, and nobody can read it. This is the pattern. The encrypted value lives in Git with the playbook, and the key to unlock it lives only in AWX.",
-   "watch": "git push may ask for a token. Do not show it on screen: pause with P."
+   "show": "Browser tab GitHub: Venuvgp19/Youtube-Tutorials-Awx > ep05 > Add file > Create new file. Name: ep05/secrets.yml (typing ep05/ makes the folder). Paste the encrypted block. Commit changes to main. Open the file to show the encrypted block.",
+   "cmd": [],
+   "say": "Now we put it in Git. On GitHub, in the ep zero five folder, Add file, Create new file, name secrets dot yml, and paste the block. Commit. Open the file: the whole world can see this, and nobody can read it. This is the pattern. The encrypted value lives in Git with the playbook, and the key to unlock it lives only in AWX.",
+   "watch": "Paste only the encrypted block. File must be ep05/secrets.yml with the 'app_db_password: !vault |' header line and the indented hex lines exactly as printed."
   },
   {
    "id": "vcred",
