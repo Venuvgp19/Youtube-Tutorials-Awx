@@ -9,7 +9,7 @@
   "Episode 3 and 4 objects exist: Homelab org, lab-ssh credential, series-repo project, Lab inventory. If not, rebuild them first",
   "Switch the every-5-min schedule OFF (Schedules list, toggle) so it does not interrupt the recording",
   "ep05 folder is on GitHub main (use-secret.yml, use-token.yml, credential-type/) but secrets.yml must NOT exist yet: you create and push it on camera",
-  "BEFORE recording, on the AWX node VM install Ansible (not installed by default): sudo dnf install -y ansible-core. Check: ansible-vault --version. If dnf has no package: python3 -m venv ~/v && ~/v/bin/pip install ansible-core && export PATH=~/v/bin:$PATH",
+  "ansible-core must be NOT installed on the AWX node VM at start (you install it on camera): check 'ansible-vault' says command not found; if present, dnf remove -y ansible-core. The VM needs internet",
   "Delete from a previous test: credentials lab-vault and demo-token, credential type App API token, templates use-vault-secret and use-token",
   "Browser at 100 percent zoom, dark theme, one clean tab, bookmarks bar hidden. Terminal font large enough to read",
   "Passwords: never on screen. Press P (pause) before typing the vault password or the Vault credential password. Logged in to GitHub in the browser; hide the profile menu"
@@ -38,6 +38,19 @@
    "show": "Browser: github.com/Venuvgp19/Youtube-Tutorials-Awx > ep05. Open use-secret.yml and point at vars_files secrets.yml. Do not show any password.",
    "cmd": [],
    "say": "Look at this playbook. It reads a variable called app db password from a file named secrets dot yml. If I wrote the password in that file in plain text and pushed it, anyone with access to the repo, and every old commit, could read it. Git remembers forever. So we encrypt the value first with Ansible Vault, and only the encrypted text goes into Git."
+  },
+  {
+   "id": "install",
+   "title": "Install ansible-core",
+   "chapter": "Install",
+   "show": "Terminal (PuTTY) on the AWX node VM, as root. Run ansible-vault to show it is missing, then dnf install and the version check. Press Speed (time-lapse) at the start and end of the dnf download.",
+   "cmd": [
+    "ansible-vault",
+    "dnf install -y ansible-core",
+    "ansible-vault --version"
+   ],
+   "say": "To encrypt a value we need the ansible vault tool, and it comes with ansible core. AWX runs Ansible inside containers, so the AWX machine itself does not have it. I try the command: command not found. So we install it with dnf, install dash y ansible dash core. It takes a minute, I will speed that part up. Now ansible vault dash dash version prints a version, and we are ready.",
+   "watch": "If dnf has no package: dnf install -y python3-pip; python3 -m venv ~/v; ~/v/bin/pip install ansible-core; export PATH=~/v/bin:$PATH. Remove ansible-core first to re-record: dnf remove -y ansible-core"
   },
   {
    "id": "vault",
