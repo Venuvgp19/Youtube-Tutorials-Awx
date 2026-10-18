@@ -1,0 +1,238 @@
+{
+ "_comment": "Optional settings for awxpro.py (Ep 4/5 style finishing). Every key is optional.",
+ "music_volume": 0.28,
+ "size_cap_mb": 27,
+ "chapters": {
+  "recap": [
+   "Credentials",
+   "A safe box for secrets"
+  ],
+  "problem": [
+   "The problem",
+   "Secrets in Git"
+  ],
+  "install": [
+   "Install",
+   "ansible-core on the node"
+  ],
+  "vault": [
+   "Encrypt",
+   "ansible-vault"
+  ],
+  "push": [
+   "Push",
+   "Encrypted file in Git"
+  ],
+  "vcred": [
+   "Vault credential",
+   "Give AWX the key"
+  ],
+  "sync": [
+   "Sync",
+   "Sync the project"
+  ],
+  "tmpl": [
+   "Template",
+   "use-vault-secret"
+  ],
+  "run": [
+   "Run",
+   "Launch the job"
+  ],
+  "ctype": [
+   "Custom type",
+   "App API Token"
+  ],
+  "tcred": [
+   "Credential",
+   "demo-token"
+  ],
+  "tuse": [
+   "Use it",
+   "Template and run"
+  ]
+ },
+ "callouts": [
+  {
+   "kw": "type decides which fields",
+   "type": "callout",
+   "text": "Type decides the fields",
+   "k": "CREDENTIAL TYPES"
+  },
+  {
+   "kw": "dnf install dash y",
+   "type": "callout",
+   "text": "dnf install -y ansible-core",
+   "k": "AWX NODE",
+   "mono": true
+  },
+  {
+   "kw": "Command not found",
+   "type": "callout",
+   "text": "ansible-vault: command not found",
+   "k": "AWX NODE",
+   "mono": true
+  },
+  {
+   "kw": "dash dash version prints",
+   "type": "callout",
+   "text": "ansible-vault --version",
+   "k": "AWX NODE",
+   "mono": true
+  },
+  {
+   "kw": "encrypt underscore string",
+   "type": "callout",
+   "text": "ansible-vault encrypt_string --name app_db_password",
+   "k": "AWX NODE",
+   "mono": true
+  },
+  {
+   "kw": "encryption successful",
+   "type": "callout",
+   "text": "Encryption successful",
+   "k": "VAULT",
+   "offset": 1.5
+  },
+  {
+   "kw": "Anyone can see this",
+   "type": "full",
+   "text": "LOCKED",
+   "sub": "Encrypted value in Git. The key stays in AWX."
+  },
+  {
+   "kw": "The credential type is Vault",
+   "type": "callout",
+   "text": "Credential type: Vault"
+  },
+  {
+   "kw": "does not watch Git",
+   "type": "stamp",
+   "text": "Sync first",
+   "sub": "AWX does not watch Git live"
+  },
+  {
+   "kw": "The job type is Run",
+   "type": "callout",
+   "text": "Job type: Run"
+  },
+  {
+   "kw": "Under credentials I add",
+   "type": "callout",
+   "text": "Credentials: lab-vault"
+  },
+  {
+   "kw": "nobody types a password",
+   "type": "callout",
+   "text": "Vault password injected by AWX"
+  },
+  {
+   "kw": "eleven characters long",
+   "type": "callout",
+   "text": "app_db_password length = 11",
+   "k": "JOB OUTPUT",
+   "mono": true
+  },
+  {
+   "kw": "Two boxes need yaml",
+   "type": "callout",
+   "text": "Input + injector configuration",
+   "k": "YAML"
+  },
+  {
+   "kw": "environment variable named",
+   "type": "callout",
+   "text": "env: APP_API_TOKEN",
+   "k": "INJECTOR",
+   "mono": true
+  },
+  {
+   "kw": "Sixteen characters",
+   "type": "callout",
+   "text": "api_token length = 16",
+   "k": "JOB OUTPUT",
+   "mono": true
+  },
+  {
+   "kw": "Three safe boxes",
+   "type": "full",
+   "text": "3 CREDENTIALS",
+   "sub": "lab-ssh  ·  lab-vault  ·  demo-token"
+  }
+ ],
+ "thumb": {
+  "line1": "HIDE YOUR",
+  "line2": "SECRETS",
+  "sub": "Credentials + Ansible Vault",
+  "chips": [
+   "Credential",
+   "Vault",
+   "Custom type",
+   "Run"
+  ]
+ },
+ "youtube": {
+  "title_suffix": "Keep Secrets Out of Git",
+  "description": "Real playbooks need secrets: database passwords, API tokens, Git logins. Learn how AWX stores them as encrypted credentials, how Ansible Vault lets you keep encrypted values in Git while the key stays in AWX, and how to build your own credential type.",
+  "bullets": [
+   "Credentials as encrypted safe boxes (Machine, Source Control, Vault)",
+   "Install ansible-core and encrypt a value with ansible-vault encrypt_string",
+   "Commit the encrypted file to GitHub",
+   "Add a Vault credential and use it in a job template",
+   "Build a custom credential type (App API Token) with an injector"
+  ],
+  "chapter_names": {
+   "recap": "Credentials: the safe box",
+   "problem": "The problem: secrets in Git",
+   "install": "Install ansible-core",
+   "vault": "Encrypt a value with ansible-vault",
+   "push": "Push the encrypted file to Git",
+   "vcred": "Create the Vault credential",
+   "sync": "Sync the project",
+   "tmpl": "Job template: use-vault-secret",
+   "run": "Run it",
+   "ctype": "Custom credential type",
+   "tcred": "Create the credential",
+   "tuse": "Second template and run"
+  },
+  "hashtags": [
+   "#AWX",
+   "#Ansible",
+   "#AnsibleVault",
+   "#DevOps",
+   "#Automation",
+   "#RedHat",
+   "#Kubernetes"
+  ],
+  "tags": [
+   "AWX",
+   "Ansible AWX",
+   "Ansible Vault",
+   "ansible-vault encrypt_string",
+   "AWX credentials",
+   "AWX custom credential type",
+   "Ansible secrets",
+   "AWX tutorial",
+   "AWX for beginners",
+   "Ansible Tower",
+   "DevOps",
+   "Ansible automation",
+   "AWX from Zero",
+   "Venu Automates"
+  ]
+ },
+ "sensitive": [
+  {
+   "step": "push",
+   "note": "GitHub profile name/photo"
+  },
+  {
+   "step": "vault",
+   "note": "vault password prompts"
+  },
+  {
+   "step": "vcred",
+   "note": "vault password field"
+  }
+ ]
+}

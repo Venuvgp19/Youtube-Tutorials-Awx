@@ -152,31 +152,59 @@ def main():
 
     # ---- ffmpeg ----
     W, H = a.scale.split("x")
+    fontopt = f":fontfile='{a.font}'" if a.font else ""
+    dt = ""
+    for c in callouts:
+        dt += f",drawtext=text='{esc_text(c['text'])}'{fontopt}:fontsize=44:fontcolor=white:box=1:boxcolor=0x000000AA:boxborderw=18:x=(w-text_w)/2:y=h-260:enable='between(t,{c['t']},{c['t'] + c['dur']})'"
+    rec_path = os.path.join(base, rec["file"])
+    final = os.path.join(out, "edited.mp4")
+    n = len(segs)
+    if not live:
+        # Silent recordings: one small ffmpeg per segment, then a concat. (A single graph with many trims of one long
+        # recording buffers frames and was killed by the OS on a 10 minute 1080p recording.)
+        segdir = os.path.join(out, "seg")
+        os.makedirs(segdir, exist_ok=True)
+        cmds = []
+        for i, s in enumerate(segs):
+            vf = f"setpts=(PTS-STARTPTS)/{s['speed']},fps=30,scale={W}:{H}:force_original_aspect_ratio=decrease,pad={W}:{H}:(ow-iw)/2:(oh-ih)/2,setsar=1"
+            cmds.append(["ffmpeg", "-y", "-loglevel", "error", "-ss", str(s["start"]), "-t", f"{s['end'] - s['start']:.3f}", "-i", rec_path, "-vf", vf, "-an",
+                         "-c:v", "libx264", "-preset", "fast", "-crf", "17", "-pix_fmt", "yuv420p", os.path.join(segdir, f"s{i:03d}.mp4")])
+        lst = os.path.join(out, "concat.txt")
+        with open(lst, "w") as f:
+            f.write("\n".join(f"file 'seg/s{i:03d}.mp4'" for i in range(n)) + "\n")
+        if dt:
+            cmds.append(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-vf", dt[1:], "-c:v", "libx264", "-preset", "fast", "-crf", "17", "-pix_fmt", "yuv420p", "-movflags", "+faststart", final])
+        else:
+            cmds.append(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-c", "copy", "-movflags", "+faststart", final])
+        with open(os.path.join(out, "render.sh"), "w") as f:
+            f.write("#!/usr/bin/env bash\nset -e\ncd \"$(dirname \"$0\")\"\n" + "\n".join(" ".join(shlex.quote(c) for c in cm) for cm in cmds) + "\n")
+        print(f"segments {n}, source {dur:.1f}s -> output {out_dur:.1f}s, {len(callouts)} callouts, {len(tasks)} editor tasks")
+        print("wrote", out)
+        if a.run:
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(max(2, os.cpu_count() or 2)) as ex:
+                res = list(ex.map(lambda cm: subprocess.run(cm), cmds[:-1]))
+            if any(r.returncode for r in res):
+                sys.exit(1)
+            sys.exit(subprocess.run(cmds[-1]).returncode)
+        return
     fc, vlab, alab = [], [], []
     for i, s in enumerate(segs):
         fc.append(f"[0:v]trim=start={s['start']}:end={s['end']},setpts=(PTS-STARTPTS)/{s['speed']},fps=30,scale={W}:{H}:force_original_aspect_ratio=decrease,pad={W}:{H}:(ow-iw)/2:(oh-ih)/2,setsar=1[v{i}]")
         vlab.append(f"[v{i}]")
-        if live:
-            if s["speed"] == 1.0:
-                fc.append(f"[0:a]atrim=start={s['start']}:end={s['end']},asetpts=PTS-STARTPTS,aresample=48000[a{i}]")
-            else:
-                d = (s["end"] - s["start"]) / s["speed"]
-                fc.append(f"anullsrc=r=48000:cl=mono,atrim=0:{d:.3f}[a{i}]")
-            alab.append(f"[a{i}]")
-    n = len(segs)
-    if live:
-        fc.append("".join(f"{v}{al}" for v, al in zip(vlab, alab)) + f"concat=n={n}:v=1:a=1[vc][ac]")
-    else:
-        fc.append("".join(vlab) + f"concat=n={n}:v=1:a=0[vc]")
+        if s["speed"] == 1.0:
+            fc.append(f"[0:a]atrim=start={s['start']}:end={s['end']},asetpts=PTS-STARTPTS,aresample=48000[a{i}]")
+        else:
+            d = (s["end"] - s["start"]) / s["speed"]
+            fc.append(f"anullsrc=r=48000:cl=mono,atrim=0:{d:.3f}[a{i}]")
+        alab.append(f"[a{i}]")
+    fc.append("".join(f"{v}{al}" for v, al in zip(vlab, alab)) + f"concat=n={n}:v=1:a=1[vc][ac]")
     last = "vc"
-    fontopt = f":fontfile='{a.font}'" if a.font else ""
     for k, c in enumerate(callouts):
         fc.append(f"[{last}]drawtext=text='{esc_text(c['text'])}'{fontopt}:fontsize=44:fontcolor=white:box=1:boxcolor=0x000000AA:boxborderw=18:x=(w-text_w)/2:y=h-260:enable='between(t,{c['t']},{c['t'] + c['dur']})'[d{k}]")
         last = f"d{k}"
-    cmd = ["ffmpeg", "-y", "-fflags", "+genpts", "-i", os.path.join(base, rec["file"]), "-filter_complex", ";".join(fc), "-map", f"[{last}]"]
-    if live:
-        cmd += ["-map", "[ac]", "-c:a", "aac", "-b:a", "160k"]
-    cmd += ["-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart", os.path.join(out, "edited.mp4")]
+    cmd = ["ffmpeg", "-y", "-fflags", "+genpts", "-i", rec_path, "-filter_complex", ";".join(fc), "-map", f"[{last}]", "-map", "[ac]", "-c:a", "aac", "-b:a", "160k",
+           "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart", final]
     with open(os.path.join(out, "render.sh"), "w") as f:
         f.write("#!/usr/bin/env bash\nset -e\n" + " ".join(shlex.quote(c) for c in cmd) + "\n")
     print(f"segments {n}, source {dur:.1f}s -> output {out_dur:.1f}s, {len(callouts)} callouts, {len(tasks)} editor tasks")

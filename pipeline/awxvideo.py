@@ -12,6 +12,7 @@
   python awxvideo.py lab-plan <project>                  LAB episodes: Studio session -> edit/edited.mp4 (cuts, retakes, time-lapses, callouts) + lab_steps.json + narration.json
   python awxvideo.py lab-build <project>                 LAB: title card + edited video (freeze-frame holds so each step's narration fits) + end card, voice placed per step
   python awxvideo.py all      <project>                  narrate, build, slides, render, mix, package
+  python awxvideo.py pro-compose|pro-events|pro-overlay|pro-final|pro-extras <project>   LAB, Ep 4/5 style finishing (see awxpro.py)
 Every command ends with one JSON line (status + paths) so n8n can read it.
 
 <project> folder: project.json, narration.json, scenes.json, music.mp3, shots/ (browser screenshots).
@@ -725,13 +726,16 @@ def cmd_all(pr, a):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=["doctor", "narrate", "build", "slides", "preview", "render", "mix", "package", "all", "lab-plan", "lab-build"])
+    ap.add_argument("cmd", choices=["doctor", "narrate", "build", "slides", "preview", "render", "mix", "package", "all", "lab-plan", "lab-build", "pro-compose", "pro-events", "pro-overlay", "pro-final", "pro-extras"])
     ap.add_argument("project")
     ap.add_argument("--voicebox", action="store_true")
     ap.add_argument("--strict", action="store_true")
     ap.add_argument("--part-frames", type=int, default=2200)
     a = ap.parse_args()
     pr = P(a.project)
+    if a.cmd.startswith("pro-"):   # Ep 4/5-style finishing lives in awxpro.py
+        import awxpro
+        sys.exit(getattr(awxpro, "cmd_" + a.cmd.replace("-", "_"))(pr, a) or 0)
     sys.exit(globals()["cmd_" + a.cmd.replace("-", "_")](pr, a) or 0)
 
 

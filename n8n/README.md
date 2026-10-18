@@ -26,3 +26,9 @@ Not automated: Zoom / Note / Mark markers (listed in `lab_steps.json`).
 - Long steps (narrate, render) hold one HTTP request open (timeout set to 2 h).
 - Lab workflow: the cut is only as good as your Studio markers; the AI only rewrites wording, it never sees the video.
 `gen_workflow.py` regenerates the JSON.
+
+## Lab PRO workflow (`awx-lab-pro-builder.json`, the Ep 4/5 look)
+Same entry as the lab workflow (Studio Silent recording saved in `_projects`), plus a form field **Voice profile (Voicebox)** (default `Venu Short`).
+Flow: start Voicebox if down -> doctor -> lab-plan (cuts, retakes) -> AI spoken narration (validated) -> narrate (Voicebox + Whisper check) -> **pro-compose** (cut to voice) -> AI graphics plan (chapters, callouts, thumbnail text, YouTube text; validated: every callout phrase must exist in the narration) -> pro-events -> pro-extras -> **you approve** (thumbnail shown) -> pro-overlay -> pro-final -> files listed.
+Needs `pipeline/server.py` running (as above) and `python -m playwright install chromium` on the PC. Total time for a 7 minute episode: about 45 minutes, mostly the two long steps at the end.
+`gen_pro_workflow.py` regenerates the JSON.

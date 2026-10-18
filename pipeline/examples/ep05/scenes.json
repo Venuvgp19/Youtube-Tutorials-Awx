@@ -1,0 +1,16 @@
+{
+ "episode": {
+  "number": 5,
+  "title": "Credentials and Ansible Vault",
+  "subtitle": "",
+  "channel": "Venu Automates",
+  "handle": "@VenAutomates",
+  "folder": "ep05",
+  "repo": "github.com/Venuvgp19/Youtube-Tutorials-Awx",
+  "next": {
+   "title": "Inventories, properly",
+   "sub": "groups, variables and dynamic sources"
+  }
+ },
+ "display": []
+}

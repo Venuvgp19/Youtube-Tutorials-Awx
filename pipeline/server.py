@@ -6,7 +6,7 @@
   GET  /health
   GET  /project?name=ep03            -> {exists, shots:[...], has_music, files:[...]}
   POST /write   {"project":"ep03","files":{"narration.json":{...},"scenes.json":{...}}}   (creates the project from template/ if new)
-  POST /run     {"project":"ep03","cmd":"narrate"|"build"|"slides"|"preview"|"render"|"mix"|"package"|"doctor"|"lab-plan"|"lab-build","voicebox":false}
+  POST /run     {"project":"ep03","cmd":"narrate"|"build"|"slides"|"preview"|"render"|"mix"|"package"|"doctor"|"lab-plan"|"lab-build"|"pro-compose"|"pro-events"|"pro-overlay"|"pro-final"|"pro-extras","voicebox":false}
   GET  /file?project=ep03&path=previews/sheet.jpg   (any file inside the project)
   POST /voicebox/ensure {}   -> starts Voicebox if its server is down (uvicorn from --voicebox-dir, default ~\\.gemini\\antigravity\\scratch\\voicebox, or --voicebox-cmd) and waits until /health answers
 Headers: X-Token: <token> when --token is set.  Run commands block until finished (n8n: set a long HTTP timeout).
@@ -16,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CMDS = {"doctor", "narrate", "build", "slides", "preview", "render", "mix", "package", "lab-plan", "lab-build"}
+CMDS = {"doctor", "narrate", "build", "slides", "preview", "render", "mix", "package", "lab-plan", "lab-build", "pro-compose", "pro-events", "pro-overlay", "pro-final", "pro-extras"}
 LOCK = threading.Lock()  # one pipeline job at a time (Voicebox queue and CPU are shared)
 ARGS = None
 
@@ -87,7 +87,7 @@ class H(BaseHTTPRequestHandler):
                                    "files": sorted(os.listdir(d)) if os.path.isdir(d) else []})
             if u.path == "/file":
                 p = safe_in(pdir(q.get("project")), q.get("path", ""))
-                ct = {"jpg": "image/jpeg", "png": "image/png", "mp4": "video/mp4", "json": "application/json", "srt": "text/plain", "txt": "text/plain"}.get(p.rsplit(".", 1)[-1], "application/octet-stream")
+                ct = {"jpg": "image/jpeg", "png": "image/png", "mp4": "video/mp4", "m4a": "audio/mp4", "json": "application/json", "srt": "text/plain", "txt": "text/plain"}.get(p.rsplit(".", 1)[-1], "application/octet-stream")
                 return self.reply(None, raw=open(p, "rb").read(), ctype=ct)
             self.reply({"error": "not found"}, 404)
         except Exception as e:
@@ -113,14 +113,14 @@ class H(BaseHTTPRequestHandler):
                         shutil.copy(os.path.join(HERE, "template", f), d)
                 os.makedirs(os.path.join(d, "shots"), exist_ok=True)
                 for name, content in body["files"].items():
-                    if name not in ("narration.json", "scenes.json", "project.json"):
-                        raise ValueError("only narration.json / scenes.json / project.json may be written")
+                    if name not in ("narration.json", "scenes.json", "project.json", "pro.json"):
+                        raise ValueError("only narration.json / scenes.json / project.json / pro.json may be written")
                     json.dump(content, open(os.path.join(d, name), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
                 return self.reply({"ok": True, "project": d})
             if self.path == "/run":
                 cmd = body.get("cmd")
                 if cmd not in CMDS: raise ValueError("unknown cmd")
-                args = [sys.executable, os.path.join(HERE, "awxvideo.py"), cmd, d]
+                args = [sys.executable, os.path.join(HERE, "awxpro.py" if cmd.startswith("pro-") else "awxvideo.py"), cmd, d]
                 if cmd == "doctor" and body.get("voicebox"): args.append("--voicebox")
                 with LOCK:
                     r = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="replace")

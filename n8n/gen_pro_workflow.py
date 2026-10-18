@@ -1,0 +1,219 @@
+#!/usr/bin/env python3
+"""Generates awx-lab-pro-builder.json: Studio silent recording -> AI spoken narration -> Voicebox -> cut to voice -> chapter/callout graphics -> music -> thumbnail + YouTube text -> size-capped export (the Ep 4/5 look). Run: python gen_pro_workflow.py"""
+import json, os
+HERE = os.path.dirname(os.path.abspath(__file__))
+exec(open(os.path.join(HERE, "gen_workflow.py")).read().split("# ---------------------------------------------------------------- triggers + config")[0])
+
+add("Notes", "n8n-nodes-base.stickyNote", 1, {"content": "## AWX LAB episode builder PRO (Ep 4/5 style)\nFor episodes you record yourself in **AWX Studio** (Silent mode).\n\n1. Record in Studio, save the session folder into your `_projects` folder.\n2. Run this workflow: it cuts the recording (cuts, retakes dropped, time-lapses, callouts), has the AI turn your script into **spoken** narration, records it in your Voicebox voice (Whisper-checked), holds the last frame of a step when the narration is longer than the footage, adds title/end card, captions, chapters and music.\n3. You approve a preview sheet before the long render.\n\nNeeds `pipeline/server.py` running (see n8n/README.md). Edit **Config** first.", "height": 300, "width": 520}, -80, -300)
+add("Lab episode form", "n8n-nodes-base.formTrigger", 2.2, {"path": "awx-lab-pro", "formTitle": "AWX from Zero - lab episode PRO (Studio recording)", "formDescription": "Save the Studio session folder (recording.webm, session.json, ...) into your _projects folder first, then give its folder name.",
+    "formFields": {"values": [{"fieldLabel": "Session folder name", "placeholder": "ep02-awx-install-2026-10-09", "requiredField": True}, {"fieldLabel": "Episode number", "fieldType": "number", "requiredField": True},
+    {"fieldLabel": "Episode title", "requiredField": True}, {"fieldLabel": "Subtitle (optional)"}, {"fieldLabel": "Next episode title"}, {"fieldLabel": "Next episode tagline"}, {"fieldLabel": "Voice profile (Voicebox)", "placeholder": "Venu Short"}]}, "options": {}}, 0, 0)
+S("Config", [("runner", "http://127.0.0.1:8787"), ("runnerBrowser", "http://127.0.0.1:8787"), ("token", ""), ("llmModel", "nvidia/nemotron-3-super-120b-a12b"), ("project", "={{ $json['Session folder name'] }}")], 220, 0)
+link("Lab episode form", "Config")
+add("Project info", "n8n-nodes-base.httpRequest", 4.2, {"url": "={{ %s.runner }}/project?name={{ encodeURIComponent(%s.project) }}" % (CFG, CFG), "sendHeaders": True,
+    "headerParameters": {"parameters": [{"name": "X-Token", "value": "={{ %s.token }}" % CFG}]}, "options": {}}, 440, 0)
+link("Config", "Project info")
+add("Session present?", "n8n-nodes-base.if", 2.2, {"conditions": {"options": {"caseSensitive": True, "leftValue": "", "typeValidation": "loose"}, "conditions": [{"id": "c1", "leftValue": "={{ $json.has_session }}", "rightValue": "", "operator": {"type": "boolean", "operation": "true", "singleValue": True}}], "combinator": "and"}, "options": {}}, 660, 0)
+link("Project info", "Session present?")
+add("Stop: no session", "n8n-nodes-base.stopAndError", 1, {"errorMessage": "={{ 'No session.json + recording.webm in ' + $('Config').first().json.project + '. In AWX Studio use Silent mode and save the session folder inside your _projects folder.' }}"}, 660, 300)
+link("Session present?", "Stop: no session", 1)
+add("Stop: pipeline failed", "n8n-nodes-base.stopAndError", 1, {"errorMessage": "={{ 'Stage failed: ' + ($json.status || '') + '\\n' + ($json.error || '') + '\\n' + ($json.result && $json.result.error ? $json.result.error : '') + '\\n' + ($json.log_tail || '') }}"}, 2400, 800)
+add("Start Voicebox if down", "n8n-nodes-base.httpRequest", 4.2, {"method": "POST", "url": "={{ %s.runner }}/voicebox/ensure" % CFG, "sendHeaders": True,
+    "headerParameters": {"parameters": [{"name": "X-Token", "value": "={{ %s.token }}" % CFG}]}, "sendBody": True, "contentType": "raw", "rawContentType": "application/json", "body": "{}", "options": {"timeout": 300000}}, 770, -150)
+RUN("Doctor", "doctor", 880, 0, voicebox=True); link("Session present?", "Start Voicebox if down", 0); link("Start Voicebox if down", "Doctor")
+IF("Environment OK?", "={{ $json.status }}", "ok", 1100, 0); link("Doctor", "Environment OK?"); link("Environment OK?", "Stop: pipeline failed", 1)
+RUN("Cut the recording (lab-plan)", "lab-plan", 1320, 0); link("Environment OK?", "Cut the recording (lab-plan)", 0)
+IF("Cut OK?", "={{ $json.status }}", "ok", 1540, 0); link("Cut the recording (lab-plan)", "Cut OK?"); link("Cut OK?", "Stop: pipeline failed", 1)
+add("Lab steps", "n8n-nodes-base.httpRequest", 4.2, {"url": "={{ %s.runner }}/file?project={{ encodeURIComponent(%s.project) }}&path=lab_steps.json" % (CFG, CFG), "sendHeaders": True,
+    "headerParameters": {"parameters": [{"name": "X-Token", "value": "={{ %s.token }}" % CFG}]}, "options": {}}, 1760, 0)
+link("Cut OK?", "Lab steps", 0)
+
+PLAYBOOK = open(__import__('os').path.join(__import__('os').path.dirname(__import__('os').path.abspath(__file__)),'skills','awx-episode-playbook.md'),encoding='utf-8').read()
+PROMPT_JS = r'''
+const PLAYBOOK = __PLAYBOOK__;
+const cfg = $('Config').first().json;
+const lab = $('Lab steps').first().json;
+const prev = $json.errors ? $json : null;
+const steps = lab.steps.filter(s => (s.say || '').trim()).map(s => ({id: s.id, chapter: s.chapter, available_s: Math.round((s.out_end - s.out_start) * 10) / 10, script: s.say}));
+const sys = `You turn a presenter's screen-recording script into SPOKEN narration for the YouTube series "AWX from Zero" (channel Venu Automates), beginner audience. A cloned voice reads it, then speech-to-text checks it. Output ONE JSON object and nothing else.
+RULES:
+- Stay faithful to each step's script: same facts, same order. Do not invent facts, commands or numbers.
+- NO digits anywhere. Spell everything as spoken: numbers ("four vCPUs", "sixty gigabyte disk"), ports ("thirty thousand eighty"), versions ("two point nineteen point one"), letters ("S E Linux", "K three S"). Put the on-screen spelling in "display" ([["spoken","shown"],...]) so captions read "SELinux", "k3s", "30080", "24.6.1".
+- Short spoken sentences, max 22 words each, contractions fine, plain and warm. Never read flags or file paths aloud; describe what the command does.
+- The video shows the command being typed and running while you speak. Length per step: aim for at most about 2.2 words per second of available_s plus 10 words; if the script is longer, tighten it (the video will freeze the last frame for any overrun, so do not pad).
+- Prefer "containers" to "pods" when ambiguous (speech-to-text mishears it).
+- Also write "open": 3 sentences (hook, what we do today, what the viewer gets) and "close": 3 sentences (recap, snapshot/next-step advice from the script if any, then "All the commands are in the repo, in the epNN folder" with the number spelled out).
+HOUSE PLAYBOOK (follow it):\n${PLAYBOOK}
+OUTPUT SHAPE: {"open":["..."],"steps":{"<step id>":["..."]},"close":["..."],"display":[["spoken","shown"]]}`;
+let user = `Episode ${$('Lab episode form').first().json['Episode number']}: ${$('Lab episode form').first().json['Episode title']}\nSteps (in order):\n` + JSON.stringify(steps, null, 1);
+if (prev) user += `\n\nYour previous answer failed validation. Fix these problems and return the full corrected JSON:\n- ` + prev.errors.join('\n- ');
+return [{json:{model: cfg.llmModel, messages:[{role:'system',content:sys},{role:'user',content:user}], errors: undefined}}];
+'''
+PROMPT_JS = PROMPT_JS.replace('__PLAYBOOK__', __import__('json').dumps(PLAYBOOK))
+add("Build prompt", "n8n-nodes-base.code", 2, {"jsCode": PROMPT_JS}, 1980, 0); link("Lab steps", "Build prompt")
+add("Spoken rewrite (NVIDIA LLM)", "n8n-nodes-base.httpRequest", 4.2, {"method": "POST", "url": "https://integrate.api.nvidia.com/v1/chat/completions", "authentication": "predefinedCredentialType", "nodeCredentialType": "openAiApi",
+    "sendBody": True, "contentType": "raw", "rawContentType": "application/json", "body": "={{ JSON.stringify({model: $json.model, messages: $json.messages, temperature: 0.2, top_p: 0.9, max_tokens: 32000}) }}", "options": {"timeout": 300000}},
+    2200, 0, creds={"openAiApi": {"id": "", "name": "OpenAI account"}})
+link("Build prompt", "Spoken rewrite (NVIDIA LLM)")
+
+VALIDATE_JS = r'''
+const cfg = $('Config').first().json;
+const form = $('Lab episode form').first().json;
+const lab = $('Lab steps').first().json;
+const raw = ($json.choices?.[0]?.message?.content || '').trim();
+const errors = [];
+let data = null;
+try { const m = raw.match(/\{[\s\S]*\}/); data = JSON.parse(m ? m[0] : raw); } catch (e) { errors.push('Output is not valid JSON: ' + e.message); }
+const words = t => t.split(/\s+/).filter(Boolean).length;
+const ONES = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'], TENS = ['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
+const small = n => n < 20 ? ONES[n] : n < 100 ? TENS[Math.floor(n/10)] + (n % 10 ? ' ' + ONES[n % 10] : '') : ONES[Math.floor(n/100)] + ' hundred' + (n % 100 ? ' ' + small(n % 100) : '');
+const spell = t => t.replace(/k3s/gi, 'K three S').replace(/(\d)\.(?=\d)/g, '$1 point ').replace(/\d+/g, d => d.length <= 3 && !/^0\d/.test(d) ? small(Number(d)) : d.split('').map(c => ONES[Number(c)]).join(' '));
+const fixAll = a => Array.isArray(a) ? a.map(t => typeof t === 'string' ? spell(t) : t) : a;
+const check = (label, arr, min) => {
+  if (!Array.isArray(arr) || arr.length < min) { errors.push(`${label}: needs ${min}+ sentences`); return; }
+  arr.forEach((t, i) => {
+    if (typeof t !== 'string') { errors.push(`${label} ${i}: not a string`); return; }
+    if (/\d/.test(t)) errors.push(`${label} sentence ${i}: contains digits - spell them out ("${t.slice(0,50)}")`);
+    if (words(t) > 32) errors.push(`${label} sentence ${i}: longer than 32 words - split it`);
+  });
+};
+if (data) {
+  data.open = fixAll(data.open); data.close = fixAll(data.close); if (data.steps) for (const k in data.steps) data.steps[k] = fixAll(data.steps[k]);
+  check('open', data.open, 2); check('close', data.close, 2);
+  lab.steps.filter(s => (s.say || '').trim() && !['open', 'close'].includes(s.id)).forEach(s => {
+    const arr = data.steps?.[s.id];
+    check('step ' + s.id, arr, 1);
+    if (Array.isArray(arr)) {
+      const avail = s.out_end - s.out_start, w = arr.reduce((n, t) => n + words(t), 0);
+      if (w > 2.6 * avail + 35) errors.push(`step ${s.id}: ${w} words is too long for ${avail.toFixed(0)}s of footage - shorten to about ${Math.round(2.2 * avail + 10)} words`);
+    }
+  });
+}
+const attempt = $runIndex + 1;
+if (errors.length) return [{json:{ok:false, errors:errors.slice(0,12), attempt}}];
+const segs = [{id:'open', chapter:'Intro', sentences:data.open}];
+lab.steps.filter(s => (s.say || '').trim() && !['open', 'close'].includes(s.id)).forEach(s => segs.push({id:s.id, chapter:s.chapter, sentences:data.steps[s.id]}));
+segs.push({id:'close', chapter:'Wrap up', sentences:data.close});
+const num = Number(form['Episode number']);
+const episode = {series:'AWX from Zero', number:num, title:form['Episode title'], subtitle:form['Subtitle (optional)'] || '', channel:'Venu Automates', handle:'@VenAutomates',
+  folder:'ep' + String(num).padStart(2,'0'), repo:'github.com/Venuvgp19/Youtube-Tutorials-Awx', next:{title:form['Next episode title'] || 'Next episode', sub:form['Next episode tagline'] || ''},
+  description: form['Episode title'], output_name:`AWX from Zero - Ep ${String(num).padStart(2,'0')} - ${form['Episode title']}`.replace(/[\\/:*?"<>|]/g,'')};
+const profile = (form['Voice profile (Voicebox)'] || 'Venu Short').trim();
+const project = {voicebox:{url:'http://127.0.0.1:17493', profile, model_size:'0.6B', engine:'qwen', language:'en', seeds:[42,7,1234,99], threshold:0.9, timeout_s:240}, music:'music.mp3', max_minutes:15};
+return [{json:{ok:true, attempt, files:{'narration.json':{segments:segs}, 'scenes.json':{episode, gaps:{sentence:0.32}, display:data.display || []}, 'project.json':project}}}];
+'''
+add("Validate narration", "n8n-nodes-base.code", 2, {"jsCode": VALIDATE_JS}, 2420, 0); link("Spoken rewrite (NVIDIA LLM)", "Validate narration")
+add("Narration valid?", "n8n-nodes-base.if", 2.2, {"conditions": {"options": {"caseSensitive": True, "leftValue": "", "typeValidation": "loose"}, "conditions": [{"id": "c1", "leftValue": "={{ $json.ok }}", "rightValue": "", "operator": {"type": "boolean", "operation": "true", "singleValue": True}}], "combinator": "and"}, "options": {}}, 2640, 0)
+link("Validate narration", "Narration valid?")
+IF("Retries left?", "={{ $json.attempt }}", "3", 2640, 200); nodes[-1]["parameters"]["conditions"]["conditions"][0]["operator"] = {"type": "number", "operation": "lt"}
+link("Narration valid?", "Retries left?", 1); link("Retries left?", "Build prompt", 0)
+add("Narration failed", "n8n-nodes-base.stopAndError", 1, {"errorMessage": "={{ 'AI narration failed validation 3 times: ' + $json.errors.join('; ') }}"}, 2860, 300); link("Retries left?", "Narration failed", 1)
+add("Write narration + meta", "n8n-nodes-base.httpRequest", 4.2, {"method": "POST", "url": "={{ %s.runner }}/write" % CFG, "sendHeaders": True, "headerParameters": {"parameters": [{"name": "X-Token", "value": "={{ %s.token }}" % CFG}]},
+    "sendBody": True, "contentType": "raw", "rawContentType": "application/json", "body": "={{ JSON.stringify({project: %s.project, files: $json.files}) }}" % CFG, "options": {}}, 2860, -100)
+link("Narration valid?", "Write narration + meta", 0)
+
+RUN("Narrate (Voicebox + Whisper check)", "narrate", 3080, -100); link("Write narration + meta", "Narrate (Voicebox + Whisper check)")
+IF("Narration clean?", "={{ $json.status }}", "ok", 3300, -100); link("Narrate (Voicebox + Whisper check)", "Narration clean?")
+add("Review flagged lines", "n8n-nodes-base.wait", 1.1, {"resume": "form", "formTitle": "Narration needs a listen",
+    "formDescription": "={{ 'These lines did not match what Whisper heard after 4 seeds. Listen in Voicebox (history) or re-word them in narration.json and re-run.<br><br>' + ($json.result.flagged || []).map(f => '<b>#' + f.k + '</b> expected: ' + f.text + '<br>&nbsp;&nbsp;heard: ' + f.heard).join('<br><br>') }}",
+    "formFields": {"values": [{"fieldLabel": "Decision", "fieldType": "dropdown", "fieldOptions": {"values": [{"option": "accept as is"}, {"option": "abort"}]}, "requiredField": True}]}, "options": {}}, 3520, 150)
+link("Narration clean?", "Review flagged lines", 1)
+IF("Accepted?", "={{ $json.Decision }}", "accept as is", 3740, 150); link("Review flagged lines", "Accepted?"); link("Accepted?", "Stop: pipeline failed", 1)
+
+RUN("Cut to voice (pro-compose)", "pro-compose", 3960, -100); link("Narration clean?", "Cut to voice (pro-compose)", 0); link("Accepted?", "Cut to voice (pro-compose)", 0)
+IF("Compose OK?", "={{ $json.status }}", "ok", 4180, -100); link("Cut to voice (pro-compose)", "Compose OK?"); link("Compose OK?", "Stop: pipeline failed", 1)
+add("Timeline", "n8n-nodes-base.httpRequest", 4.2, {"url": "={{ %s.runner }}/file?project={{ encodeURIComponent(%s.project) }}&path=pro/timeline.json" % (CFG, CFG), "sendHeaders": True,
+    "headerParameters": {"parameters": [{"name": "X-Token", "value": "={{ %s.token }}" % CFG}]}, "options": {}}, 4400, -100)
+link("Compose OK?", "Timeline", 0)
+
+GFX_PROMPT_JS = r'''
+const cfg = $('Config').first().json;
+const form = $('Lab episode form').first().json;
+const T = $('Timeline').first().json;
+const prev = $json.errors ? $json : null;
+const steps = T.steps.filter(s => !s.silent).map(s => ({id: s.id, title: s.title, chapter: s.chapter, narration: T.chunks.filter(c => c.step === s.id).map(c => c.text).join(' ')}));
+const sys = `You plan the on-screen graphics, thumbnail and YouTube text for a screen-recording episode of the series "AWX from Zero" (channel Venu Automates). Output ONE JSON object and nothing else.
+You get the spoken narration per step (spoken form: "dash", "dot", "underscore" are spelled out, numbers are words). Graphics appear at the moment a phrase is spoken.
+SHAPE:
+{"chapters":{"<step id>":["TAG (1-2 words)","Title (2-4 words)"]},  // for every step except the first and the last
+ "callouts":[{"kw":"phrase copied VERBATIM from the narration (2-5 words, unique, case-insensitive)","type":"callout|stamp|full","text":"on-screen text, max 54 characters, written the way it is typed on screen (flags, dots, dashes, digits ok)","k":"small caps label, max 16 chars (callout only)","mono":true|false,"sub":"one short line (stamp/full only)"}],
+ "thumb":{"line1":"2-3 words CAPS","line2":"ONE word CAPS (the hook)","sub":"max 5 words","chips":["3 or 4 short chips"]},
+ "youtube":{"title_suffix":"max 6 words, the benefit","description":"2-3 sentences","bullets":["4-6 short bullets"],"chapter_names":{"<step id>":"YouTube chapter title"},"hashtags":["#AWX","#Ansible","..."],"tags":["10-14 search tags"]},
+ "sensitive":[{"step":"<step id>","note":"what must be blurred (passwords, profile name or photo, tokens, emails)"}]}
+RULES: 8-20 callouts, at most 3 per step, at least 2 seconds of narration apart. callout = the command, field, setting or result being discussed. stamp = a short warning/emphasis (max 2 in the episode). full = full-screen key idea (max 2 in the episode). kw MUST appear in the narration of that step. Never put real secrets in text. Keep the thumbnail hook emotional and short.`;
+let user = `Episode ${form['Episode number']}: ${form['Episode title']}\nSteps:\n` + JSON.stringify(steps, null, 1);
+if (prev) user += `\n\nYour previous answer failed validation. Fix these problems and return the full corrected JSON:\n- ` + prev.errors.join('\n- ');
+return [{json:{model: cfg.llmModel, messages:[{role:'system',content:sys},{role:'user',content:user}]}}];
+'''
+add("Graphics prompt", "n8n-nodes-base.code", 2, {"jsCode": GFX_PROMPT_JS}, 4620, -100); link("Timeline", "Graphics prompt")
+add("Graphics plan (NVIDIA LLM)", "n8n-nodes-base.httpRequest", 4.2, {"method": "POST", "url": "https://integrate.api.nvidia.com/v1/chat/completions", "authentication": "predefinedCredentialType", "nodeCredentialType": "openAiApi",
+    "sendBody": True, "contentType": "raw", "rawContentType": "application/json", "body": "={{ JSON.stringify({model: $json.model, messages: $json.messages, temperature: 0.3, top_p: 0.9, max_tokens: 16000}) }}", "options": {"timeout": 300000}},
+    4840, -100, creds={"openAiApi": {"id": "", "name": "OpenAI account"}})
+link("Graphics prompt", "Graphics plan (NVIDIA LLM)")
+
+GFX_VALIDATE_JS = r'''
+const T = $('Timeline').first().json;
+const raw = ($json.choices?.[0]?.message?.content || '').trim();
+const errors = [];
+let g = null;
+try { const m = raw.match(/\{[\s\S]*\}/); g = JSON.parse(m ? m[0] : raw); } catch (e) { errors.push('Output is not valid JSON: ' + e.message); }
+const ids = T.steps.filter(s => !s.silent).map(s => s.id);
+const inner = ids.slice(1, -1);
+if (g) {
+  g.chapters = g.chapters || {};
+  inner.forEach(id => { const c = g.chapters[id]; if (!Array.isArray(c) || c.length !== 2 || c.some(x => typeof x !== 'string' || !x.trim())) errors.push(`chapters.${id}: needs ["TAG","Title"]`); });
+  const cs = Array.isArray(g.callouts) ? g.callouts : [];
+  if (cs.length < 6 || cs.length > 24) errors.push(`callouts: ${cs.length} given, need 8-20`);
+  let full = 0, stamp = 0;
+  const per = {};
+  cs.forEach((c, i) => {
+    const ty = c.type || 'callout';
+    if (!['callout', 'stamp', 'full'].includes(ty)) errors.push(`callout ${i}: bad type ${ty}`);
+    if (ty === 'full') full++; if (ty === 'stamp') stamp++;
+    if (typeof c.text !== 'string' || !c.text.trim() || c.text.length > 54) errors.push(`callout ${i}: text must be 1-54 characters`);
+    if (typeof c.kw !== 'string' || !c.kw.trim()) { errors.push(`callout ${i}: kw missing`); return; }
+    const ch = T.chunks.filter(x => x.text.toLowerCase().includes(c.kw.toLowerCase()));
+    if (!ch.length) errors.push(`callout ${i}: kw "${c.kw}" is not in the narration - copy a phrase exactly`);
+    else per[ch[0].step] = (per[ch[0].step] || 0) + 1;
+    if (/(password|token)\s*[:=]\s*\S{4,}/i.test(c.text)) errors.push(`callout ${i}: do not show secrets`);
+  });
+  if (full > 2) errors.push('at most 2 full-screen callouts'); if (stamp > 2) errors.push('at most 2 stamps');
+  Object.entries(per).forEach(([k, n]) => { if (n > 3) errors.push(`step ${k}: ${n} callouts, max 3`); });
+  const th = g.thumb || {};
+  if (!th.line1 || !th.line2 || !th.sub || !Array.isArray(th.chips) || th.chips.length < 2) errors.push('thumb: line1, line2, sub and 3-4 chips are required');
+  const y = g.youtube || {};
+  if (!y.description || !Array.isArray(y.bullets) || y.bullets.length < 3 || !Array.isArray(y.tags) || y.tags.length < 8) errors.push('youtube: description, 4-6 bullets and 10-14 tags are required');
+}
+const attempt = $runIndex + 1;
+if (errors.length) return [{json:{ok:false, errors:errors.slice(0, 12), attempt}}];
+return [{json:{ok:true, attempt, files:{'pro.json': g}}}];
+'''
+add("Validate graphics", "n8n-nodes-base.code", 2, {"jsCode": GFX_VALIDATE_JS}, 5060, -100); link("Graphics plan (NVIDIA LLM)", "Validate graphics")
+add("Graphics valid?", "n8n-nodes-base.if", 2.2, {"conditions": {"options": {"caseSensitive": True, "leftValue": "", "typeValidation": "loose"}, "conditions": [{"id": "c1", "leftValue": "={{ $json.ok }}", "rightValue": "", "operator": {"type": "boolean", "operation": "true", "singleValue": True}}], "combinator": "and"}, "options": {}}, 5280, -100)
+link("Validate graphics", "Graphics valid?")
+IF("Graphics retries left?", "={{ $json.attempt }}", "3", 5280, 100); nodes[-1]["parameters"]["conditions"]["conditions"][0]["operator"] = {"type": "number", "operation": "lt"}
+link("Graphics valid?", "Graphics retries left?", 1); link("Graphics retries left?", "Graphics prompt", 0)
+add("Graphics failed", "n8n-nodes-base.stopAndError", 1, {"errorMessage": "={{ 'AI graphics plan failed validation 3 times: ' + $json.errors.join('; ') }}"}, 5500, 200); link("Graphics retries left?", "Graphics failed", 1)
+add("Write pro.json", "n8n-nodes-base.httpRequest", 4.2, {"method": "POST", "url": "={{ %s.runner }}/write" % CFG, "sendHeaders": True, "headerParameters": {"parameters": [{"name": "X-Token", "value": "={{ %s.token }}" % CFG}]},
+    "sendBody": True, "contentType": "raw", "rawContentType": "application/json", "body": "={{ JSON.stringify({project: %s.project, files: $json.files}) }}" % CFG, "options": {}}, 5500, -100)
+link("Graphics valid?", "Write pro.json", 0)
+RUN("Graphics events (pro-events)", "pro-events", 5720, -100); link("Write pro.json", "Graphics events (pro-events)")
+IF("Events OK?", "={{ $json.status }}", "ok", 5940, -100); link("Graphics events (pro-events)", "Events OK?"); link("Events OK?", "Stop: pipeline failed", 1)
+RUN("Thumbnail + YouTube text (pro-extras)", "pro-extras", 6160, -100); link("Events OK?", "Thumbnail + YouTube text (pro-extras)", 0)
+IF("Extras OK?", "={{ $json.status }}", "ok", 6380, -100); link("Thumbnail + YouTube text (pro-extras)", "Extras OK?"); link("Extras OK?", "Stop: pipeline failed", 1)
+add("Approve graphics plan", "n8n-nodes-base.wait", 1.1, {"resume": "form", "formTitle": "Approve graphics, thumbnail and YouTube text before the long render",
+    "formDescription": "={{ 'Thumbnail, YouTube text and the frames-to-blur list are already in the episode folder (ep NN thumbnail png, youtube_epNN.txt, review_notes.txt). The graphics render and the final export take about 30 minutes.<br><img style=\"max-width:100%%\" src=\"' + %s.runnerBrowser + '/file?project=' + %s.project + '&path=' + encodeURIComponent('ep' + String($('Lab episode form').first().json['Episode number']).padStart(2,'0') + '_thumbnail.png') + '\"><br>Callouts missing from the narration: ' + (($('Graphics events (pro-events)').first().json.result.missing_keywords || []).join(', ') || 'none') }}" % (CFG, CFG),
+    "formFields": {"values": [{"fieldLabel": "Decision", "fieldType": "dropdown", "fieldOptions": {"values": [{"option": "approve"}, {"option": "reject"}]}, "requiredField": True}, {"fieldLabel": "Notes (if rejecting)", "fieldType": "textarea"}]}, "options": {}}, 6600, -100)
+link("Extras OK?", "Approve graphics plan", 0)
+IF("Approved?", "={{ $json.Decision }}", "approve", 6820, -100); link("Approve graphics plan", "Approved?")
+add("Rejected", "n8n-nodes-base.stopAndError", 1, {"errorMessage": "={{ 'Graphics plan rejected: ' + ($json['Notes (if rejecting)'] || 'no notes') + '. Edit pro.json in the episode folder (callouts, chapters, thumb, youtube) and re-run pro-events / pro-extras, or re-run this workflow.' }}"}, 6820, 300); link("Approved?", "Rejected", 1)
+RUN("Render graphics layer (pro-overlay, long)", "pro-overlay", 7040, -100); link("Approved?", "Render graphics layer (pro-overlay, long)", 0)
+IF("Overlay OK?", "={{ $json.status }}", "ok", 7260, -100); link("Render graphics layer (pro-overlay, long)", "Overlay OK?"); link("Overlay OK?", "Stop: pipeline failed", 1)
+RUN("Final export (pro-final, long)", "pro-final", 7480, -100); link("Overlay OK?", "Final export (pro-final, long)", 0)
+IF("Final OK?", "={{ $json.status }}", "ok", 7700, -100); link("Final export (pro-final, long)", "Final OK?"); link("Final OK?", "Stop: pipeline failed", 1)
+S("Done", [("message", "={{ 'Lab episode ready: ' + %s.project }}" % CFG), ("files", "={{ ($json.result.files || []).map(f => f.file + ' (' + f.size_mb + ' MB)').join('\\n') }}")], 7920, -100, keep=False)
+link("Final OK?", "Done")
+
+wf = {"name": "AWX lab episode builder PRO (Studio recording)", "nodes": nodes, "connections": conns, "active": False, "settings": {"executionOrder": "v1"}, "pinData": {}, "meta": {"templateCredsSetupCompleted": False}}
+json.dump(wf, open(os.path.join(HERE, "awx-lab-pro-builder.json"), "w"), indent=2)
+print(len(nodes), "nodes")
