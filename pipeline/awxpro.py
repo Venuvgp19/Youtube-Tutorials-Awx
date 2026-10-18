@@ -6,7 +6,7 @@ Runs after `lab-plan` and `narrate` (see awxvideo.py). Same project folder.
   python awxpro.py pro-compose <project>   cut footage to the voice (jump-cuts / slow-down / hold), voiceover_raw.wav, pro/vid.mp4, pro/timeline.json
   python awxpro.py pro-events  <project>   chapter lower-thirds + keyword callouts -> pro/events.json
   python awxpro.py pro-overlay <project>   render the graphics layer (Chromium) -> pro/overlay.mov
-  python awxpro.py pro-final   <project>   title/end card + ducked music + size-capped export: "AWX Ep05 - Motion Graphics.mp4" and "... - Clean.mp4"
+  python awxpro.py pro-final   <project>   title/end card + ducked music + size-capped export: "AWX Ep05 - Motion Graphics.mp4" (add "clean" to pro.json variants for "... - Clean.mp4")
   python awxpro.py pro-extras  <project>   thumbnail + YouTube title/description/chapters/tags + review notes (frames to blur)
 
 Optional pro.json in the project folder (every key optional): see examples/ep05/pro.json.
@@ -32,6 +32,7 @@ DEFAULTS = {
     "music_volume": 0.28, "duck": {"threshold": 0.015, "ratio": 6, "attack": 300, "release": 900},
     "size_cap_mb": 27.0, "preset": "slow", "audio_kbps": 128,
     "auto_cmd_callouts": False,
+    "variants": ["text"],      # exports: "text" = Motion Graphics, "clean" = no graphics; add "clean" to get both
     "chapters": {}, "callouts": [], "ranges": {}, "thumb": {}, "youtube": {}, "sensitive": [],
 }
 
@@ -351,7 +352,10 @@ def cmd_pro_final(pr, a):
         ov = os.path.join(d, "overlay.mov")
         names = {"text": out_names(pr)[0], "clean": out_names(pr)[1]}
         made = []
-        for v in ("text", "clean"):
+        want = [v for v in ("text", "clean") if v in (cfg.get("variants") or ["text"])]
+        if "text" in want and not os.path.exists(ov) and "clean" not in want:
+            want.append("clean")   # no graphics layer: fall back to the clean export so something is made
+        for v in want:
             if v == "text" and not os.path.exists(ov):
                 continue
             m = os.path.join(d, f"m_{v}.mp4")

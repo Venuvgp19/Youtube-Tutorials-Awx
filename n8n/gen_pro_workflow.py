@@ -143,17 +143,15 @@ SHAPE:
 RULES: 8-20 callouts, at most 3 per step, at least 2 seconds of narration apart. callout = the command, field, setting or result being discussed. stamp = a short warning/emphasis (max 2 in the episode). full = full-screen key idea (max 2 in the episode). kw MUST appear in the narration of that step. Never put real secrets in text. Keep the thumbnail hook emotional and short.`;
 let user = `Episode ${form['Episode number']}: ${form['Episode title']}\nSteps:\n` + JSON.stringify(steps, null, 1);
 if (prev) user += `\n\nYour previous answer failed validation. Fix these problems and return the full corrected JSON:\n- ` + prev.errors.join('\n- ');
-return [{json:{model: cfg.llmModel, messages:[{role:'system',content:sys},{role:'user',content:user}]}}];
+return [{json:{prompt: sys + '\n\n' + user + '\n\nReply with the JSON object only. Do not create or edit any files.', effort: 'medium'}}];
 '''
 add("Graphics prompt", "n8n-nodes-base.code", 2, {"jsCode": GFX_PROMPT_JS}, 4620, -100); link("Timeline", "Graphics prompt")
-add("Graphics plan (NVIDIA LLM)", "n8n-nodes-base.httpRequest", 4.2, {"method": "POST", "url": "https://integrate.api.nvidia.com/v1/chat/completions", "authentication": "predefinedCredentialType", "nodeCredentialType": "openAiApi",
-    "sendBody": True, "contentType": "raw", "rawContentType": "application/json", "body": "={{ JSON.stringify({model: $json.model, messages: $json.messages, temperature: 0.3, top_p: 0.9, max_tokens: 16000}) }}", "options": {"timeout": 300000}},
-    4840, -100, creds={"openAiApi": {"id": "", "name": "OpenAI account"}})
-link("Graphics prompt", "Graphics plan (NVIDIA LLM)")
+add("Graphics plan (Gemini AI assistant)", "n8n-nodes-base.executeWorkflow", 1.2, {"workflowId": {"__rl": True, "value": "AgyWf8k2Lm9Pq4Vx", "mode": "id"}, "options": {"waitForSubWorkflow": True}}, 4840, -100)
+link("Graphics prompt", "Graphics plan (Gemini AI assistant)")
 
 GFX_VALIDATE_JS = r'''
 const T = $('Timeline').first().json;
-const raw = ($json.choices?.[0]?.message?.content || '').trim();
+const raw = String($json.antigravity_response ?? $json.response ?? $json.choices?.[0]?.message?.content ?? '').replace(/```(?:json)?/g, '').trim();
 const errors = [];
 let g = null;
 try { const m = raw.match(/\{[\s\S]*\}/); g = JSON.parse(m ? m[0] : raw); } catch (e) { errors.push('Output is not valid JSON: ' + e.message); }
@@ -188,7 +186,7 @@ const attempt = $runIndex + 1;
 if (errors.length) return [{json:{ok:false, errors:errors.slice(0, 12), attempt}}];
 return [{json:{ok:true, attempt, files:{'pro.json': g}}}];
 '''
-add("Validate graphics", "n8n-nodes-base.code", 2, {"jsCode": GFX_VALIDATE_JS}, 5060, -100); link("Graphics plan (NVIDIA LLM)", "Validate graphics")
+add("Validate graphics", "n8n-nodes-base.code", 2, {"jsCode": GFX_VALIDATE_JS}, 5060, -100); link("Graphics plan (Gemini AI assistant)", "Validate graphics")
 add("Graphics valid?", "n8n-nodes-base.if", 2.2, {"conditions": {"options": {"caseSensitive": True, "leftValue": "", "typeValidation": "loose"}, "conditions": [{"id": "c1", "leftValue": "={{ $json.ok }}", "rightValue": "", "operator": {"type": "boolean", "operation": "true", "singleValue": True}}], "combinator": "and"}, "options": {}}, 5280, -100)
 link("Validate graphics", "Graphics valid?")
 IF("Graphics retries left?", "={{ $json.attempt }}", "3", 5280, 100); nodes[-1]["parameters"]["conditions"]["conditions"][0]["operator"] = {"type": "number", "operation": "lt"}

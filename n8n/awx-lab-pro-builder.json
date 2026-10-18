@@ -747,7 +747,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst cfg = $('Config').first().json;\nconst form = $('Lab episode form').first().json;\nconst T = $('Timeline').first().json;\nconst prev = $json.errors ? $json : null;\nconst steps = T.steps.filter(s => !s.silent).map(s => ({id: s.id, title: s.title, chapter: s.chapter, narration: T.chunks.filter(c => c.step === s.id).map(c => c.text).join(' ')}));\nconst sys = `You plan the on-screen graphics, thumbnail and YouTube text for a screen-recording episode of the series \"AWX from Zero\" (channel Venu Automates). Output ONE JSON object and nothing else.\nYou get the spoken narration per step (spoken form: \"dash\", \"dot\", \"underscore\" are spelled out, numbers are words). Graphics appear at the moment a phrase is spoken.\nSHAPE:\n{\"chapters\":{\"<step id>\":[\"TAG (1-2 words)\",\"Title (2-4 words)\"]},  // for every step except the first and the last\n \"callouts\":[{\"kw\":\"phrase copied VERBATIM from the narration (2-5 words, unique, case-insensitive)\",\"type\":\"callout|stamp|full\",\"text\":\"on-screen text, max 54 characters, written the way it is typed on screen (flags, dots, dashes, digits ok)\",\"k\":\"small caps label, max 16 chars (callout only)\",\"mono\":true|false,\"sub\":\"one short line (stamp/full only)\"}],\n \"thumb\":{\"line1\":\"2-3 words CAPS\",\"line2\":\"ONE word CAPS (the hook)\",\"sub\":\"max 5 words\",\"chips\":[\"3 or 4 short chips\"]},\n \"youtube\":{\"title_suffix\":\"max 6 words, the benefit\",\"description\":\"2-3 sentences\",\"bullets\":[\"4-6 short bullets\"],\"chapter_names\":{\"<step id>\":\"YouTube chapter title\"},\"hashtags\":[\"#AWX\",\"#Ansible\",\"...\"],\"tags\":[\"10-14 search tags\"]},\n \"sensitive\":[{\"step\":\"<step id>\",\"note\":\"what must be blurred (passwords, profile name or photo, tokens, emails)\"}]}\nRULES: 8-20 callouts, at most 3 per step, at least 2 seconds of narration apart. callout = the command, field, setting or result being discussed. stamp = a short warning/emphasis (max 2 in the episode). full = full-screen key idea (max 2 in the episode). kw MUST appear in the narration of that step. Never put real secrets in text. Keep the thumbnail hook emotional and short.`;\nlet user = `Episode ${form['Episode number']}: ${form['Episode title']}\\nSteps:\\n` + JSON.stringify(steps, null, 1);\nif (prev) user += `\\n\\nYour previous answer failed validation. Fix these problems and return the full corrected JSON:\\n- ` + prev.errors.join('\\n- ');\nreturn [{json:{model: cfg.llmModel, messages:[{role:'system',content:sys},{role:'user',content:user}]}}];\n"
+        "jsCode": "\nconst cfg = $('Config').first().json;\nconst form = $('Lab episode form').first().json;\nconst T = $('Timeline').first().json;\nconst prev = $json.errors ? $json : null;\nconst steps = T.steps.filter(s => !s.silent).map(s => ({id: s.id, title: s.title, chapter: s.chapter, narration: T.chunks.filter(c => c.step === s.id).map(c => c.text).join(' ')}));\nconst sys = `You plan the on-screen graphics, thumbnail and YouTube text for a screen-recording episode of the series \"AWX from Zero\" (channel Venu Automates). Output ONE JSON object and nothing else.\nYou get the spoken narration per step (spoken form: \"dash\", \"dot\", \"underscore\" are spelled out, numbers are words). Graphics appear at the moment a phrase is spoken.\nSHAPE:\n{\"chapters\":{\"<step id>\":[\"TAG (1-2 words)\",\"Title (2-4 words)\"]},  // for every step except the first and the last\n \"callouts\":[{\"kw\":\"phrase copied VERBATIM from the narration (2-5 words, unique, case-insensitive)\",\"type\":\"callout|stamp|full\",\"text\":\"on-screen text, max 54 characters, written the way it is typed on screen (flags, dots, dashes, digits ok)\",\"k\":\"small caps label, max 16 chars (callout only)\",\"mono\":true|false,\"sub\":\"one short line (stamp/full only)\"}],\n \"thumb\":{\"line1\":\"2-3 words CAPS\",\"line2\":\"ONE word CAPS (the hook)\",\"sub\":\"max 5 words\",\"chips\":[\"3 or 4 short chips\"]},\n \"youtube\":{\"title_suffix\":\"max 6 words, the benefit\",\"description\":\"2-3 sentences\",\"bullets\":[\"4-6 short bullets\"],\"chapter_names\":{\"<step id>\":\"YouTube chapter title\"},\"hashtags\":[\"#AWX\",\"#Ansible\",\"...\"],\"tags\":[\"10-14 search tags\"]},\n \"sensitive\":[{\"step\":\"<step id>\",\"note\":\"what must be blurred (passwords, profile name or photo, tokens, emails)\"}]}\nRULES: 8-20 callouts, at most 3 per step, at least 2 seconds of narration apart. callout = the command, field, setting or result being discussed. stamp = a short warning/emphasis (max 2 in the episode). full = full-screen key idea (max 2 in the episode). kw MUST appear in the narration of that step. Never put real secrets in text. Keep the thumbnail hook emotional and short.`;\nlet user = `Episode ${form['Episode number']}: ${form['Episode title']}\\nSteps:\\n` + JSON.stringify(steps, null, 1);\nif (prev) user += `\\n\\nYour previous answer failed validation. Fix these problems and return the full corrected JSON:\\n- ` + prev.errors.join('\\n- ');\nreturn [{json:{prompt: sys + '\\n\\n' + user + '\\n\\nReply with the JSON object only. Do not create or edit any files.', effort: 'medium'}}];\n"
       },
       "id": "n28",
       "name": "Graphics prompt",
@@ -760,36 +760,27 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://integrate.api.nvidia.com/v1/chat/completions",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "openAiApi",
-        "sendBody": true,
-        "contentType": "raw",
-        "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({model: $json.model, messages: $json.messages, temperature: 0.3, top_p: 0.9, max_tokens: 16000}) }}",
+        "workflowId": {
+          "__rl": true,
+          "value": "AgyWf8k2Lm9Pq4Vx",
+          "mode": "id"
+        },
         "options": {
-          "timeout": 300000
+          "waitForSubWorkflow": true
         }
       },
       "id": "n29",
-      "name": "Graphics plan (NVIDIA LLM)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "name": "Graphics plan (Gemini AI assistant)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
       "position": [
         4840,
         -100
-      ],
-      "credentials": {
-        "openAiApi": {
-          "id": "",
-          "name": "OpenAI account"
-        }
-      }
+      ]
     },
     {
       "parameters": {
-        "jsCode": "\nconst T = $('Timeline').first().json;\nconst raw = ($json.choices?.[0]?.message?.content || '').trim();\nconst errors = [];\nlet g = null;\ntry { const m = raw.match(/\\{[\\s\\S]*\\}/); g = JSON.parse(m ? m[0] : raw); } catch (e) { errors.push('Output is not valid JSON: ' + e.message); }\nconst ids = T.steps.filter(s => !s.silent).map(s => s.id);\nconst inner = ids.slice(1, -1);\nif (g) {\n  g.chapters = g.chapters || {};\n  inner.forEach(id => { const c = g.chapters[id]; if (!Array.isArray(c) || c.length !== 2 || c.some(x => typeof x !== 'string' || !x.trim())) errors.push(`chapters.${id}: needs [\"TAG\",\"Title\"]`); });\n  const cs = Array.isArray(g.callouts) ? g.callouts : [];\n  if (cs.length < 6 || cs.length > 24) errors.push(`callouts: ${cs.length} given, need 8-20`);\n  let full = 0, stamp = 0;\n  const per = {};\n  cs.forEach((c, i) => {\n    const ty = c.type || 'callout';\n    if (!['callout', 'stamp', 'full'].includes(ty)) errors.push(`callout ${i}: bad type ${ty}`);\n    if (ty === 'full') full++; if (ty === 'stamp') stamp++;\n    if (typeof c.text !== 'string' || !c.text.trim() || c.text.length > 54) errors.push(`callout ${i}: text must be 1-54 characters`);\n    if (typeof c.kw !== 'string' || !c.kw.trim()) { errors.push(`callout ${i}: kw missing`); return; }\n    const ch = T.chunks.filter(x => x.text.toLowerCase().includes(c.kw.toLowerCase()));\n    if (!ch.length) errors.push(`callout ${i}: kw \"${c.kw}\" is not in the narration - copy a phrase exactly`);\n    else per[ch[0].step] = (per[ch[0].step] || 0) + 1;\n    if (/(password|token)\\s*[:=]\\s*\\S{4,}/i.test(c.text)) errors.push(`callout ${i}: do not show secrets`);\n  });\n  if (full > 2) errors.push('at most 2 full-screen callouts'); if (stamp > 2) errors.push('at most 2 stamps');\n  Object.entries(per).forEach(([k, n]) => { if (n > 3) errors.push(`step ${k}: ${n} callouts, max 3`); });\n  const th = g.thumb || {};\n  if (!th.line1 || !th.line2 || !th.sub || !Array.isArray(th.chips) || th.chips.length < 2) errors.push('thumb: line1, line2, sub and 3-4 chips are required');\n  const y = g.youtube || {};\n  if (!y.description || !Array.isArray(y.bullets) || y.bullets.length < 3 || !Array.isArray(y.tags) || y.tags.length < 8) errors.push('youtube: description, 4-6 bullets and 10-14 tags are required');\n}\nconst attempt = $runIndex + 1;\nif (errors.length) return [{json:{ok:false, errors:errors.slice(0, 12), attempt}}];\nreturn [{json:{ok:true, attempt, files:{'pro.json': g}}}];\n"
+        "jsCode": "\nconst T = $('Timeline').first().json;\nconst raw = String($json.antigravity_response ?? $json.response ?? $json.choices?.[0]?.message?.content ?? '').replace(/```(?:json)?/g, '').trim();\nconst errors = [];\nlet g = null;\ntry { const m = raw.match(/\\{[\\s\\S]*\\}/); g = JSON.parse(m ? m[0] : raw); } catch (e) { errors.push('Output is not valid JSON: ' + e.message); }\nconst ids = T.steps.filter(s => !s.silent).map(s => s.id);\nconst inner = ids.slice(1, -1);\nif (g) {\n  g.chapters = g.chapters || {};\n  inner.forEach(id => { const c = g.chapters[id]; if (!Array.isArray(c) || c.length !== 2 || c.some(x => typeof x !== 'string' || !x.trim())) errors.push(`chapters.${id}: needs [\"TAG\",\"Title\"]`); });\n  const cs = Array.isArray(g.callouts) ? g.callouts : [];\n  if (cs.length < 6 || cs.length > 24) errors.push(`callouts: ${cs.length} given, need 8-20`);\n  let full = 0, stamp = 0;\n  const per = {};\n  cs.forEach((c, i) => {\n    const ty = c.type || 'callout';\n    if (!['callout', 'stamp', 'full'].includes(ty)) errors.push(`callout ${i}: bad type ${ty}`);\n    if (ty === 'full') full++; if (ty === 'stamp') stamp++;\n    if (typeof c.text !== 'string' || !c.text.trim() || c.text.length > 54) errors.push(`callout ${i}: text must be 1-54 characters`);\n    if (typeof c.kw !== 'string' || !c.kw.trim()) { errors.push(`callout ${i}: kw missing`); return; }\n    const ch = T.chunks.filter(x => x.text.toLowerCase().includes(c.kw.toLowerCase()));\n    if (!ch.length) errors.push(`callout ${i}: kw \"${c.kw}\" is not in the narration - copy a phrase exactly`);\n    else per[ch[0].step] = (per[ch[0].step] || 0) + 1;\n    if (/(password|token)\\s*[:=]\\s*\\S{4,}/i.test(c.text)) errors.push(`callout ${i}: do not show secrets`);\n  });\n  if (full > 2) errors.push('at most 2 full-screen callouts'); if (stamp > 2) errors.push('at most 2 stamps');\n  Object.entries(per).forEach(([k, n]) => { if (n > 3) errors.push(`step ${k}: ${n} callouts, max 3`); });\n  const th = g.thumb || {};\n  if (!th.line1 || !th.line2 || !th.sub || !Array.isArray(th.chips) || th.chips.length < 2) errors.push('thumb: line1, line2, sub and 3-4 chips are required');\n  const y = g.youtube || {};\n  if (!y.description || !Array.isArray(y.bullets) || y.bullets.length < 3 || !Array.isArray(y.tags) || y.tags.length < 8) errors.push('youtube: description, 4-6 bullets and 10-14 tags are required');\n}\nconst attempt = $runIndex + 1;\nif (errors.length) return [{json:{ok:false, errors:errors.slice(0, 12), attempt}}];\nreturn [{json:{ok:true, attempt, files:{'pro.json': g}}}];\n"
       },
       "id": "n30",
       "name": "Validate graphics",
@@ -1583,14 +1574,14 @@
       "main": [
         [
           {
-            "node": "Graphics plan (NVIDIA LLM)",
+            "node": "Graphics plan (Gemini AI assistant)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Graphics plan (NVIDIA LLM)": {
+    "Graphics plan (Gemini AI assistant)": {
       "main": [
         [
           {

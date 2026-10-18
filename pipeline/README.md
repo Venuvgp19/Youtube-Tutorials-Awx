@@ -44,6 +44,6 @@ After `lab-plan` and `narrate` (use `"profile": "Venu Short"` in `project.json`)
 - **pro-events**: chapter lower-thirds (one per step except first and last) and callouts from `pro.json`. A callout `kw` is a phrase from the spoken narration; the graphic appears when it is spoken. Reports `missing_keywords`.
 - **pro-extras**: `epNN_thumbnail.png`, `youtube_epNN.txt` (title, description, chapters, hashtags, tags), `review_notes.txt` (frames to blur, per-chunk timing).
 - **pro-overlay**: renders `pro/overlay.mov` (transparent graphics layer).
-- **pro-final**: title and end card, music (volume 0.28, ducked under the voice), then `AWX EpNN - Motion Graphics.mp4` and `AWX EpNN - Clean.mp4`, each under `size_cap_mb` (default 27) with 2-pass x264.
+- **pro-final**: title and end card, music (volume 0.28, ducked under the voice), then `AWX EpNN - Motion Graphics.mp4` (set `"variants": ["text","clean"]` in pro.json to also get `AWX EpNN - Clean.mp4`), each under `size_cap_mb` (default 27) with 2-pass x264.
 `pro.json` is optional, every key too: see `examples/ep05/pro.json` for the full Ep 5 file. To pin a chunk to exact footage use `"ranges": {"<step id>:<chunk number>": [from_s, to_s]}` (seconds in `edit/edited.mp4`).
 Limits: the footage for a step is shared out by chunk length, so a callout can appear a second or two early or late; fix with `offset` on the callout or a `ranges` entry. If narration is much longer than a step's footage you get long freezes: record that step slower or shorten the narration.
