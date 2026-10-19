@@ -17,7 +17,7 @@ Welcome to the official companion repository for our **Ansible AWX YouTube Tutor
 | **03** | **The 8 building blocks of AWX** | Organizations, credentials, projects, inventories, templates, workflows, schedules, EEs | [ep03](ep03/) | *Coming Soon* |
 | **04** | **Your first job: Git project to job template** | Link this repo, build an inventory and run a playbook | [ep04](ep04/) | *Coming Soon* |
 | **05** | **Credentials and Ansible Vault** | Machine, source control, vault and custom credential types | [ep05](ep05/) | *Coming Soon* |
-| **06** | **Dynamic inventory from AWS** | EC2 inventory source, groups by tag, smart inventories | [ep06](ep06/) | *Coming Soon* |
+| **06** | **Inventories, properly** | Groups, variables, inventory from Git, smart inventories (bonus: EC2 source vars) | [ep06](ep06/) | *Coming Soon* |
 | **07** | **Custom Execution Environments** | ansible-builder, push to a registry, use it in AWX | [ep07](ep07/) | *Coming Soon* |
 | **08** | **Surveys and RBAC: self-service automation** | Surveys, teams and execute-only roles | [ep08](ep08/) | *Coming Soon* |
 | **09** | **Workflows: approvals and failure paths** | Workflow templates, approval nodes, on-failure branches | [ep09](ep09/) | *Coming Soon* |

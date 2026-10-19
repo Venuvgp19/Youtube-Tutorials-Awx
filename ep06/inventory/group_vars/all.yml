@@ -1,0 +1,2 @@
+# Applies to every host in this inventory
+env: lab

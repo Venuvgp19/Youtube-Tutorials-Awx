@@ -1,0 +1,118 @@
+{
+ "schema": "awx-script/1",
+ "episode": 6,
+ "slug": "ep06-inventories-properly",
+ "title": "Inventories, properly",
+ "target_minutes": "12-14 raw, about 9-10 after cuts",
+ "preflight": [
+  "Lab VMs running: AWX node (192.168.100.102) and node2 (192.168.100.103). Open http://192.168.100.102:30080 and log in as admin",
+  "Episode 3-5 objects exist: Homelab org, lab-ssh credential, series-repo project, Lab inventory with host 192.168.100.103",
+  "Switch the every-5-min schedule OFF (Schedules list, toggle) so it does not interrupt the recording",
+  "ep06 folder is on GitHub main (show-vars.yml, inventory/hosts.yml, group_vars, host_vars). Do NOT sync series-repo yet: you sync it on camera",
+  "Delete leftovers from a test: group linux in Lab, variables on host 192.168.100.103, template show-vars, inventory lab-git, smart inventory web-only",
+  "Browser at 100 percent zoom, dark theme, one clean tab, bookmarks bar hidden",
+  "GitHub: logged in, hide the profile menu and photo. Do not show the admin password; pause with P if you type it"
+ ],
+ "steps": [
+  {
+   "id": "open",
+   "title": "Open",
+   "chapter": "Intro",
+   "show": "AWX dashboard, logged in as admin.",
+   "cmd": [],
+   "say": "So far our inventory is one host that I typed in by hand. That works for a lab, but not for fifty servers. Today we do inventories properly. You group hosts, give groups and hosts their own variables, keep the whole inventory in Git so AWX loads it for you, and build a smart inventory that picks hosts by a filter. By the end, one playbook knows exactly what each server is."
+  },
+  {
+   "id": "recap",
+   "title": "The inventory today",
+   "chapter": "Recap",
+   "show": "AWX: Resources > Inventories > Lab. Open the Hosts tab: one host, 192.168.100.103. Then the Groups tab: empty.",
+   "cmd": [],
+   "say": "Here is the Lab inventory from episode three. One host, node two, and no groups. An inventory is simply the list of machines AWX can work on. Groups and variables are what make it useful. A group lets you say, run this on all web servers. A variable lets each host carry its own settings, like a port or an environment name."
+  },
+  {
+   "id": "group",
+   "title": "Create a group",
+   "chapter": "Groups",
+   "show": "AWX: Lab > Groups > Add. Name linux. Variables (YAML): env: lab. Save. Then in the group open the Hosts tab > Add > Add existing host, tick 192.168.100.103, Save.",
+   "cmd": [],
+   "say": "Groups, Add. The name is linux. In the variables box I write env colon lab. Every host in this group gets that variable. Save. Now the group's Hosts tab, Add existing host, and I tick node two. Save. Node two is now a member of linux, and it inherits env equals lab.",
+   "watch": "Variables box: YAML mode. Exactly 'env: lab' with a space after the colon."
+  },
+  {
+   "id": "hostvar",
+   "title": "Add a host variable",
+   "chapter": "Variables",
+   "show": "AWX: Lab > Hosts > 192.168.100.103 > Edit. Variables: app_port: 8081. Save. Show the Details page with the variable.",
+   "cmd": [],
+   "say": "Variables can also sit on a single host. I edit node two and add app port colon eight zero eight one. Save. The rule to remember: the more specific wins. A host variable beats a group variable, and a group variable beats the all group. That is how one server can differ from the rest of its group.",
+   "watch": "Keep the existing variables box content if any; add the line under it."
+  },
+  {
+   "id": "sync",
+   "title": "Sync the project",
+   "chapter": "Project",
+   "show": "AWX: Resources > Projects. Click the sync icon next to series-repo. Wait for Successful and a new Revision.",
+   "cmd": [],
+   "say": "The playbook for this episode is in the ep zero six folder on GitHub, so first we sync the project. Successful, and a new revision."
+  },
+  {
+   "id": "tmpl",
+   "title": "Template show-vars",
+   "chapter": "Job template",
+   "show": "AWX: Resources > Templates > Add > Add job template. Name show-vars. Job type Run. Inventory Lab. Project series-repo. Execution environment AWX EE (latest). Playbook ep06/show-vars.yml. Credentials lab-ssh. Save, then Launch. Point at the debug line: groups=linux env=lab port=8081.",
+   "cmd": [],
+   "say": "A small template called show vars. Inventory Lab, project series-repo, playbook ep zero six slash show vars dot yml, credential lab ssh. Save and launch. The playbook pings the host, then prints what AWX told it. Groups: linux. Env: lab, from the group. Port: eight zero eight one, from the host. The variables reached the playbook without a single line of them in the playbook itself."
+  },
+  {
+   "id": "repo",
+   "title": "The inventory in Git",
+   "chapter": "Inventory in Git",
+   "show": "Browser: github.com/Venuvgp19/Youtube-Tutorials-Awx > ep06 > inventory. Open hosts.yml (groups homelab, web, db; hosts web1, web2, db1). Then group_vars/web.yml, group_vars/db.yml and host_vars/web2.yml, two seconds each.",
+   "cmd": [],
+   "say": "Clicking hosts in by hand does not scale, and nobody can review it. So let's keep the inventory in Git. Hosts dot yml has a group called homelab with two child groups, web and db, and three hosts, web one, web two and db one. In my lab they all point at node two, in real life they would be three servers. Group vars holds the settings per group: web servers use port eight zero eight zero, the database five four three two. And host vars says web two is the odd one, port eight zero eight one."
+  },
+  {
+   "id": "source",
+   "title": "Add an inventory source",
+   "chapter": "Inventory source",
+   "show": "AWX: Resources > Inventories > Add > Add inventory. Name lab-git, Organization Homelab. Save. Sources tab > Add. Name git-hosts. Source: Sourced from a Project. Project series-repo. Inventory file ep06/inventory/hosts.yml. Tick Overwrite and Update on launch. Save, then click Sync. Wait for Successful.",
+   "cmd": [],
+   "say": "A new inventory, lab git, in the Homelab organization. This one gets its hosts from a source. Sources, Add. Name git hosts. The source is Sourced from a Project, the project is series-repo, and the inventory file is ep zero six slash inventory slash hosts dot yml. Overwrite means Git is the truth: anything removed from Git is removed here too. Update on launch refreshes it before every job. Save, and sync.",
+   "watch": "If ep06/inventory/hosts.yml is not in the Inventory file list, sync series-repo again and reopen the form."
+  },
+  {
+   "id": "result",
+   "title": "What AWX loaded",
+   "chapter": "Result",
+   "show": "AWX: lab-git > Hosts tab: web1, web2, db1. Groups tab: homelab, web, db. Click web2 and show its variables (ansible_host, app_port 8081, env lab, role_name web).",
+   "cmd": [],
+   "say": "Look at the hosts: web one, web two and db one, and I typed none of them. The groups came across too: homelab, web and db. Open web two: its variables merged from all the files, env lab, role web, and port eight zero eight one from its host vars file. Change the file in Git, sync, and AWX follows."
+  },
+  {
+   "id": "run",
+   "title": "Run against the Git inventory",
+   "chapter": "Run",
+   "show": "AWX: Templates > show-vars > Edit. Inventory lab-git. Save, Launch. Point at the three debug lines: web1 port 8080, web2 port 8081, db1 port 5432, role and groups per host.",
+   "cmd": [],
+   "say": "Same template, I only switch the inventory to lab git and launch. Three hosts now, and each one knows who it is. Web one: web, port eight zero eight zero. Web two: port eight zero eight one. Db one: the database, port five four three two. One playbook, three different answers, all from the inventory."
+  },
+  {
+   "id": "smart",
+   "title": "Smart inventory",
+   "chapter": "Smart inventory",
+   "show": "AWX: Inventories > Add > Add smart inventory. Name web-only, Organization Homelab. Smart host filter: groups__name=web. Save. Open the Hosts tab: web1 and web2 only.",
+   "cmd": [],
+   "say": "Last one. A smart inventory does not store hosts, it filters them. Add smart inventory, name web only. The host filter is groups underscore underscore name equals web. Save, and the hosts tab shows only web one and web two. Point a template at this, and new web servers join automatically the moment they appear in Git.",
+   "watch": "In the filter field use the advanced search: key groups__name, value web. Fallback filter: name__startswith=web."
+  },
+  {
+   "id": "close",
+   "title": "Wrap up",
+   "chapter": "Wrap up",
+   "show": "AWX: Resources > Inventories list showing Lab, lab-git and web-only.",
+   "cmd": [],
+   "say": "Quick recap. Groups let you target many hosts at once. Variables live on groups and hosts, and the most specific wins. Keep the inventory in Git and let an inventory source load it. And a smart inventory picks hosts by a filter. The same source idea works for clouds: the repo has bonus settings for AWS. Next episode we build our own execution environment. The files are in the ep zero six folder of my GitHub repo. If this helped, subscribe, and I will see you in the next one."
+  }
+ ]
+}

@@ -1,0 +1,17 @@
+---
+# Prints what AWX knows about each host: its groups and its variables.
+- name: Show groups and variables for every host
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Can we log in?
+      ansible.builtin.ping:
+
+    - name: What this host gets from the inventory
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}:
+          groups={{ group_names | join(',') }}
+          env={{ env | default('-') }}
+          role={{ role_name | default('-') }}
+          port={{ app_port | default('-') }}
