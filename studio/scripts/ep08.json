@@ -1,0 +1,108 @@
+{
+ "schema": "awx-script/1",
+ "episode": 8,
+ "slug": "ep08-surveys-and-rbac",
+ "title": "Surveys and RBAC: self-service automation",
+ "target_minutes": "12-14 raw, about 9 after cuts",
+ "preflight": [
+  "Lab VMs running: AWX node (192.168.100.102) and node2 (192.168.100.103). Open http://192.168.100.102:30080 and log in as admin",
+  "Episode 3-6 objects exist: Homelab org, lab-ssh (with privilege escalation), series-repo, Lab inventory with host 192.168.100.103",
+  "Switch the every-5-min schedule OFF (Schedules list, toggle) so it does not interrupt the recording",
+  "ep08 folder is on GitHub main (restart_service.yml). Do NOT sync series-repo yet: you sync it on camera",
+  "Delete leftovers from a test: template restart-service, user maria, team operators",
+  "Open a second browser window in private/incognito mode for logging in as maria (same zoom and theme)",
+  "Choose maria's password off camera; press P (pause) while typing it in AWX and in the login screen",
+  "Browser at 100 percent zoom, dark theme, one clean tab, bookmarks bar hidden. Terminal font large enough to read"
+ ],
+ "steps": [
+  {
+   "id": "open",
+   "title": "Open",
+   "chapter": "Intro",
+   "show": "AWX dashboard, logged in as admin.",
+   "cmd": [],
+   "say": "Right now only I can run jobs, because only I have the admin password. That does not scale. Today we let a teammate restart a service on the servers without giving them admin, without SSH, and without a way to type anything dangerous. Two features do it: surveys, which ask simple questions at launch, and role based access control, which decides who can do what."
+  },
+  {
+   "id": "play",
+   "title": "The playbook",
+   "chapter": "Playbook",
+   "show": "Browser: GitHub > ep08 > restart_service.yml. Point at allowed_services and the assert task.",
+   "cmd": [],
+   "say": "The playbook restarts one service, and the name comes in as a variable called service name. Look at the allow list: chronyd, sshd and crond. The first task refuses anything else. That is our safety net: even if someone finds a way to pass a different value, the playbook stops."
+  },
+  {
+   "id": "tmpl",
+   "title": "Create the template",
+   "chapter": "Job template",
+   "show": "AWX: Projects > sync series-repo. Then Templates > Add job template. Name restart-service. Run. Inventory Lab. Project series-repo. EE AWX EE (latest). Playbook ep08/restart_service.yml. Credentials lab-ssh. Tick Privilege escalation. Save.",
+   "cmd": [],
+   "say": "Sync the project, then a new template: restart service. Inventory Lab, project series-repo, playbook ep zero eight slash restart service dot yml, credential lab ssh, and privilege escalation on, because restarting a service needs root. Save."
+  },
+  {
+   "id": "survey",
+   "title": "Add a survey",
+   "chapter": "Survey",
+   "show": "AWX: restart-service > Survey tab > Add. Question: Which service should be restarted? Variable name service_name. Answer type Multiple Choice (single select). Choices chronyd, sshd, crond (one per line). Default chronyd. Required. Save. Then switch the survey toggle ON.",
+   "cmd": [],
+   "say": "Now the survey tab. Add a question: which service should be restarted? The answer goes into the variable service name. The type is multiple choice, single select, with three choices: chronyd, sshd and crond. Default chronyd, and it is required. Save, and switch the survey on. Whoever launches this template now gets a dropdown, not a text box.",
+   "watch": "Survey toggle must be ON (it is off after you create the first question)."
+  },
+  {
+   "id": "test",
+   "title": "Test it as admin",
+   "chapter": "Test",
+   "show": "AWX: restart-service > Launch. The survey dialog shows the dropdown. Pick chronyd, Next, Launch. Point at the assert task (ok) and the restart task (changed).",
+   "cmd": [],
+   "say": "Launch. Here is the survey: a dropdown with three services. I pick chronyd, next, launch. The allow list check passes, and chronyd is restarted. Changed equals one."
+  },
+  {
+   "id": "user",
+   "title": "Create a user",
+   "chapter": "Users",
+   "show": "AWX: Access > Users > Add. First name Maria, Username maria, Password (PAUSE with P while typing both password fields), User type Normal user, Organization Homelab. Save.",
+   "cmd": [],
+   "say": "Now the teammate. Users, Add. Maria, username maria, a password, which I type off camera. User type: normal user, not an administrator. Organization Homelab. Save. Right now Maria can log in, but she cannot run anything."
+  },
+  {
+   "id": "team",
+   "title": "Create a team",
+   "chapter": "Teams",
+   "show": "AWX: Access > Teams > Add. Name operators, Organization Homelab. Save. Then Users tab > Add > tick maria > Next > role Member > Save.",
+   "cmd": [],
+   "say": "We never give rights to people one by one, we give them to teams. Teams, Add, operators, in Homelab. Save. In the users tab I add Maria as a member. Next month, a new operator joins? Add them to the team, done."
+  },
+  {
+   "id": "role",
+   "title": "Give execute only",
+   "chapter": "Roles",
+   "show": "AWX: Templates > restart-service > Access (User and team access) tab > Add > Teams > tick operators > Next > role Execute > Save. Show the role list for the template.",
+   "cmd": [],
+   "say": "Now the important part. On the restart service template, the access tab, add, teams, operators, and the role is execute. Not admin, not read only. Execute means: you can launch this template and see its jobs. You cannot edit it, you cannot see the credential, and you cannot touch any other template."
+  },
+  {
+   "id": "maria",
+   "title": "Log in as Maria",
+   "chapter": "Self-service",
+   "show": "Private browser window: http://192.168.100.102:30080, log in as maria (PAUSE while typing the password). Show the left menu, then Templates: only restart-service. Launch it, pick sshd, Launch. Show the output. Open the template: no Edit button.",
+   "cmd": [],
+   "say": "Let's see it from Maria's side, in a private window. She logs in, and look at templates: one template, restart service, nothing else. She launches it, the dropdown asks which service, she picks sshd, launch, and it runs. She opens the template: no edit button. And the credential? She cannot even see it. Self-service, with guard rails."
+  },
+  {
+   "id": "audit",
+   "title": "Who did what",
+   "chapter": "Audit",
+   "show": "Admin window: Views > Jobs. Show the restart-service jobs with the 'Launched by' column (admin, maria). Open maria's job > Details: Launched by maria, Extra variables service_name: sshd.",
+   "cmd": [],
+   "say": "Back as admin, in the jobs list. Every run shows who launched it: admin, and maria. Open Maria's job, and the details show the exact answer she gave: service name equals sshd. If something breaks at three in the morning, you know who ran what, and with which choices."
+  },
+  {
+   "id": "close",
+   "title": "Wrap up",
+   "chapter": "Wrap up",
+   "show": "Admin window: Access > Teams > operators > Roles tab.",
+   "cmd": [],
+   "say": "Quick recap. A survey turns variables into simple questions, and multiple choice keeps people inside safe values. The playbook still checks an allow list. Teams collect users, and the execute role lets them launch a template without editing or seeing secrets. Next episode: workflows, with an approval step and an automatic rollback when something fails. The files are in the ep zero eight folder of my GitHub repo. If this helped, subscribe, and I will see you in the next one."
+  }
+ ]
+}

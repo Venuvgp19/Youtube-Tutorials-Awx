@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Launch a job template through the AWX REST API and wait for it to finish.
-# Usage: CONTROLLER_HOST=http://<AWX VM IP>:30080 CONTROLLER_OAUTH_TOKEN=... ./api.sh "Ping homelab"
+# Usage: CONTROLLER_HOST=http://<AWX VM IP>:30080 CONTROLLER_OAUTH_TOKEN=... ./api.sh ping-lab
 set -euo pipefail
 
 AWX="${CONTROLLER_HOST:?set CONTROLLER_HOST}"
 TOKEN="${CONTROLLER_OAUTH_TOKEN:?set CONTROLLER_OAUTH_TOKEN}"
-NAME="${1:-Ping homelab}"
+NAME="${1:-ping-lab}"
 auth=(-H "Authorization: Bearer $TOKEN")
 
 # 1. find the template id

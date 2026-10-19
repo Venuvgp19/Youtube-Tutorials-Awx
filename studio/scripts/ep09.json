@@ -1,0 +1,107 @@
+{
+ "schema": "awx-script/1",
+ "episode": 9,
+ "slug": "ep09-workflows-approvals-failure",
+ "title": "Workflows: approvals and failure paths",
+ "target_minutes": "14-16 raw, about 10 after cuts",
+ "preflight": [
+  "Lab VMs running: AWX node (192.168.100.102) and node2 (192.168.100.103). Open http://192.168.100.102:30080 and log in as admin",
+  "Episode 3-6 objects exist: Homelab org, lab-ssh (privilege escalation), series-repo, Lab inventory with host 192.168.100.103",
+  "Switch the every-5-min schedule OFF (Schedules list, toggle) so it does not interrupt the recording",
+  "ep09 folder is on GitHub main (health_check.yml, deploy.yml, rollback.yml). Do NOT sync series-repo yet",
+  "On node2: the package tree must be absent: dnf remove -y tree. Node2 needs internet",
+  "Delete leftovers from a test: templates wf-health, wf-deploy, wf-rollback, workflow safe-deploy",
+  "Browser at 100 percent zoom, dark theme, one clean tab, bookmarks bar hidden. Terminal font large enough to read"
+ ],
+ "steps": [
+  {
+   "id": "open",
+   "title": "Open",
+   "chapter": "Intro",
+   "show": "AWX dashboard, logged in as admin.",
+   "cmd": [],
+   "say": "A real change is never one job. You check the server is healthy, someone approves, you deploy, and if the deploy fails, you roll back. Today we build exactly that as an AWX workflow: three playbooks, an approval step in the middle, and a failure path that cleans up on its own."
+  },
+  {
+   "id": "plays",
+   "title": "The three playbooks",
+   "chapter": "Playbooks",
+   "show": "Browser: GitHub > ep09. Open health_check.yml (assert / is less than 90 percent full), deploy.yml (dnf install package_name, default tree), rollback.yml (dnf remove package_name). Two seconds each.",
+   "cmd": [],
+   "say": "Three small playbooks. Health check fails if the root disk is over ninety percent full. Deploy installs a package, the variable package name, by default tree. And rollback removes that same package. Each one is boring on its own. The value is in how we chain them."
+  },
+  {
+   "id": "tmpls",
+   "title": "Three job templates",
+   "chapter": "Templates",
+   "show": "AWX: Projects > sync series-repo. Then create three job templates with inventory Lab, project series-repo, credential lab-ssh, Privilege escalation ticked: wf-health (ep09/health_check.yml), wf-deploy (ep09/deploy.yml, tick 'Prompt on launch' next to Variables), wf-rollback (ep09/rollback.yml, tick 'Prompt on launch' next to Variables). Save each.",
+   "cmd": [],
+   "say": "Sync the project, and three templates. W f health, w f deploy and w f rollback, all on inventory Lab with lab ssh and privilege escalation. On deploy and rollback I tick prompt on launch for variables, so the workflow can hand them the package name. I will speed through the clicking.",
+   "watch": "Without 'Prompt on launch' on Variables, the workflow survey value does not reach deploy/rollback in some AWX versions."
+  },
+  {
+   "id": "wf",
+   "title": "Create the workflow",
+   "chapter": "Workflow",
+   "show": "AWX: Templates > Add > Add workflow template. Name safe-deploy, Organization Homelab, Inventory Lab. Save. The Visualizer opens.",
+   "cmd": [],
+   "say": "Now the workflow. Add workflow template, name safe deploy, organization Homelab. Save, and AWX opens the visualizer, an empty canvas with a start node."
+  },
+  {
+   "id": "nodes",
+   "title": "Health, approve, deploy",
+   "chapter": "Visualizer",
+   "show": "Visualizer: Start > Add node > Job template wf-health > Save. On wf-health hover the plus > Run type 'On success' > Approval: name 'Approve deploy', timeout 0 > Save. On the approval node plus > On success > Job template wf-deploy > Save.",
+   "cmd": [],
+   "say": "First node: w f health. On success, an approval node, called approve deploy. No timeout, it waits for a human. On success of the approval, w f deploy. Read it left to right: check, ask, change."
+  },
+  {
+   "id": "fail",
+   "title": "The failure path",
+   "chapter": "Failure path",
+   "show": "Visualizer: on wf-deploy plus > Run type 'On failure' > Job template wf-rollback > Save. Show the red line. Click Save (top right) to save the workflow.",
+   "cmd": [],
+   "say": "And the safety net. On deploy, add a node, but this time the run type is on failure. Job template w f rollback. See the red line: rollback only runs if deploy fails. Green lines for success, red for failure, blue for always. Save the workflow."
+  },
+  {
+   "id": "survey",
+   "title": "Ask for the package",
+   "chapter": "Survey",
+   "show": "AWX: safe-deploy > Survey tab > Add. Question 'Package to deploy', variable package_name, type Text, default tree, required. Save, switch the survey ON.",
+   "cmd": [],
+   "say": "One survey question on the workflow itself: package to deploy, variable package name, default tree. Every node in the workflow receives the answer."
+  },
+  {
+   "id": "run",
+   "title": "Run and approve",
+   "chapter": "Approve",
+   "show": "AWX: safe-deploy > Launch, keep tree, Launch. The workflow output shows wf-health green, then the approval node waiting. Click the bell icon (top bar) or Views > Workflow Approvals > select 'Approve deploy' > Approve. Watch wf-deploy turn green. Rollback stays grey.",
+   "cmd": [],
+   "say": "Launch with tree. Health check runs, green. Now the workflow stops at the approval and waits. The bell at the top shows one pending approval. In a team, that is your change manager. I approve, and deploy runs. Green, tree is installed. And rollback never ran, it stays grey, because nothing failed."
+  },
+  {
+   "id": "break",
+   "title": "Break it on purpose",
+   "chapter": "Failure",
+   "show": "AWX: safe-deploy > Launch. Package: no-such-package-xyz. Launch. Approve again. wf-deploy turns red, wf-rollback runs and turns green. Open wf-deploy's output: No package no-such-package-xyz available.",
+   "cmd": [],
+   "say": "Now let's break it. Launch again, but this time the package is no such package x y z. Health check passes, I approve, and deploy fails: no such package available. Watch the red path: rollback starts on its own, and cleans up. Nobody had to wake up for that."
+  },
+  {
+   "id": "deny",
+   "title": "Deny an approval",
+   "chapter": "Deny",
+   "show": "AWX: Launch safe-deploy once more with tree. At the approval click Deny. Show the workflow ends: approval red, deploy never ran.",
+   "cmd": [],
+   "say": "One last run, and this time at the approval I click deny. The approval turns red and the workflow stops right there. Deploy never ran, nothing changed on the server."
+  },
+  {
+   "id": "close",
+   "title": "Wrap up",
+   "chapter": "Wrap up",
+   "show": "AWX: Views > Jobs filtered to Workflow Jobs, showing the three safe-deploy runs (successful, successful with rollback, denied).",
+   "cmd": [],
+   "say": "Quick recap. A workflow chains job templates with success, failure and always paths. An approval node pauses for a human, and a deny stops everything after it. A failure path runs a rollback automatically. And a survey on the workflow feeds every node. Next episode: schedules, notifications and webhooks, so jobs run on a timer, tell you the result, and start on a git push. The files are in the ep zero nine folder of my GitHub repo. If this helped, subscribe, and I will see you in the next one."
+  }
+ ]
+}

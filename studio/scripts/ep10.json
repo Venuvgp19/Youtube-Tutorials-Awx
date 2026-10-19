@@ -1,0 +1,106 @@
+{
+ "schema": "awx-script/1",
+ "episode": 10,
+ "slug": "ep10-schedules-notifications-webhooks",
+ "title": "Schedules, notifications and GitHub webhooks",
+ "target_minutes": "14-16 raw, about 10 after cuts",
+ "preflight": [
+  "Lab VMs running: AWX node (192.168.100.102) and node2 (192.168.100.103). Open http://192.168.100.102:30080 and log in as admin",
+  "Episode 3-6 objects exist: Homelab org, lab-ssh, series-repo, Lab inventory with host 192.168.100.103",
+  "Switch the every-5-min schedule OFF (Schedules list, toggle) so it does not interrupt the recording",
+  "ep10 folder is on GitHub main (report.yml, github-push.sh). Do NOT sync series-repo yet. On node2: git -C ~/Youtube-Tutorials-Awx pull (or clone it) so github-push.sh is there; curl and openssl installed",
+  "n8n: workflow 'AWX notify -> Telegram (ep10)' imported, Telegram credential and chat ID set, workflow ACTIVE. From node2 test: curl -s -X POST http://192.168.100.1:5678/webhook/awx-notify -d '{}' (Telegram gets a message). If it times out, allow TCP 5678 in Windows Firewall for the host-only network",
+  "Delete leftovers from a test: template report, notification n8n-telegram, schedules on report",
+  "Telegram open on the phone or Telegram Desktop visible for the notification shot",
+  "Browser at 100 percent zoom, dark theme, one clean tab, bookmarks bar hidden. Terminal font large enough to read",
+  "Passwords and tokens never on screen: press P (pause) before typing or pasting one, resume after (the webhook key)"
+ ],
+ "steps": [
+  {
+   "id": "open",
+   "title": "Open",
+   "chapter": "Intro",
+   "show": "AWX dashboard, logged in as admin.",
+   "cmd": [],
+   "say": "So far every job started because I clicked launch. Real automation runs without you. Today, three ways to get there: a schedule that runs a job at a set time, a notification that tells you how it went, and a webhook, so a push to GitHub starts a job by itself."
+  },
+  {
+   "id": "tmpl",
+   "title": "A job to automate",
+   "chapter": "Job template",
+   "show": "AWX: Projects > sync series-repo. Templates > Add job template: name report, Run, inventory Lab, project series-repo, playbook ep10/report.yml, credential lab-ssh. Save, Launch. Point at the debug line: launched by admin via manual.",
+   "cmd": [],
+   "say": "First a small job to automate. Sync the project, and a template called report, with the playbook ep ten slash report dot yml. It pings the host and prints how it was started. Launch. Launched by admin, via manual. Keep an eye on that word, it will change."
+  },
+  {
+   "id": "sched",
+   "title": "Schedule it",
+   "chapter": "Schedule",
+   "show": "AWX: report > Schedules tab > Add. Name nightly-report. Start date today, start time two minutes from now, local time zone. Repeat frequency Day, every 1. Run on: weekdays only if your version offers it. Save. Show Next run. Wait for it to fire (Speed while waiting) and open the job: launched via scheduled.",
+   "cmd": [],
+   "say": "Schedules tab, add. Name nightly report. In episode three we used every five minutes; this time something realistic: every day, at a fixed time, in my time zone. For the demo I set the start two minutes from now. Save. AWX shows the next run. I speed up the wait. There it is: a new job, and the output says launched via scheduled.",
+   "watch": "Set the time zone explicitly; the default is UTC. After the demo change the start time to 02:00."
+  },
+  {
+   "id": "n8n",
+   "title": "Where the alert goes",
+   "chapter": "Notification target",
+   "show": "n8n (browser tab http://localhost:5678): open workflow 'AWX notify -> Telegram (ep10)'. Show the Webhook node (POST /webhook/awx-notify) and the Telegram node. Do not show the chat ID or bot token.",
+   "cmd": [],
+   "say": "Next, notifications. AWX can send to email, Slack, Teams, PagerDuty, or any webhook. I use a webhook into n8n, which forwards the result to Telegram on my phone. This is the n8n side: a webhook that receives the job, and a Telegram message with the status and a link."
+  },
+  {
+   "id": "notif",
+   "title": "Create the notification",
+   "chapter": "Notification",
+   "show": "AWX: Administration > Notifications > Add. Name n8n-telegram, Organization Homelab, Type Webhook. Target URL http://192.168.100.1:5678/webhook/awx-notify. HTTP method POST. Save. Click the Test (paper plane) icon; show the test message arriving in Telegram.",
+   "cmd": [],
+   "say": "In AWX: administration, notifications, add. Name n eight n telegram, type webhook, and the target URL is my n8n webhook. Save, and the test button. And there it is on Telegram. The pipe works.",
+   "watch": "192.168.100.1 is the Windows host on the host-only network. If the test fails, check the n8n workflow is active and the firewall allows 5678."
+  },
+  {
+   "id": "attach",
+   "title": "Attach it to the template",
+   "chapter": "Notify on result",
+   "show": "AWX: Templates > report > Notifications tab. Toggle n8n-telegram ON for Success and Failure. Launch report. Show the Telegram message: job id, report, successful, link.",
+   "cmd": [],
+   "say": "Notifications are attached per template. On report, the notifications tab, and I switch n8n telegram on for success and for failure. Launch. A few seconds later, Telegram: job number, report, successful, and a link straight to the output. Now the nightly run reports to me without me looking."
+  },
+  {
+   "id": "hook",
+   "title": "Enable a webhook",
+   "chapter": "Webhook",
+   "show": "AWX: Templates > report > Edit. Tick 'Enable webhook'. Webhook service GitHub. Save. Back in the template details show the Webhook URL and the Webhook key (PAUSE with P before revealing or copying the key). Copy both.",
+   "cmd": [],
+   "say": "Last one, webhooks. Edit the report template, tick enable webhook, and the service is GitHub. Save. AWX now shows a webhook URL and a secret key. GitHub signs every delivery with that key, so AWX can tell a real push from a fake one. I copy both, off camera for the key."
+  },
+  {
+   "id": "github",
+   "title": "Where GitHub fits",
+   "chapter": "GitHub side",
+   "show": "Browser: GitHub repo > Settings > Webhooks > Add webhook form (do not save). Point at Payload URL, Content type application/json, Secret, 'Just the push event'. Cancel.",
+   "cmd": [],
+   "say": "On GitHub, the repo settings have a webhooks page. You paste the AWX URL as the payload URL, choose application json, paste the key as the secret, and pick the push event. One catch for a home lab: GitHub is on the internet and my AWX is on a private network, so GitHub cannot reach it. In production your AWX has a public address, or you use a tunnel. So for the demo, I send AWX exactly what GitHub would send."
+  },
+  {
+   "id": "push",
+   "title": "Simulate a push",
+   "chapter": "Push",
+   "show": "Terminal (PuTTY) on node2. Run the script with the URL and key (PAUSE while pasting the key, resume before Enter). Show HTTP 202. Switch to AWX Jobs: a new report job; output says via webhook (webhook event push). Telegram shows the message.",
+   "cmd": [
+    "cd ~/Youtube-Tutorials-Awx && git pull",
+    "./ep10/github-push.sh '<webhook URL>' '<webhook key>'"
+   ],
+   "say": "On node two, the script github push dot sh builds the same push event GitHub sends, signs it with the key, and posts it to the webhook URL. HTTP two oh two: accepted. In AWX a new report job is already running, and the output says launched via webhook, event push. And Telegram pings again. Push, run, notify, with nobody clicking anything.",
+   "watch": "HTTP 403 means the key or signature is wrong; copy the key again. 202 means AWX accepted it."
+  },
+  {
+   "id": "close",
+   "title": "Wrap up",
+   "chapter": "Wrap up",
+   "show": "AWX: report > Jobs tab showing manual, scheduled and webhook runs.",
+   "cmd": [],
+   "say": "Quick recap. A schedule runs a template on a calendar, in your time zone. A notification sends the result anywhere, here through n8n to Telegram. And a webhook lets GitHub start a job on every push, signed with a secret key. Next episode we go one level up: we manage AWX itself as code, and launch jobs from n8n through the REST API. The files are in the ep ten folder of my GitHub repo. If this helped, subscribe, and I will see you in the next one."
+  }
+ ]
+}

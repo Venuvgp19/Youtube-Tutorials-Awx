@@ -1,0 +1,285 @@
+{
+ "name": "Launch AWX job (ep11)",
+ "nodes": [
+  {
+   "parameters": {},
+   "name": "Run",
+   "type": "n8n-nodes-base.manualTrigger",
+   "typeVersion": 1,
+   "position": [
+    0,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "assignments": {
+     "assignments": [
+      {
+       "id": "a1",
+       "name": "awx",
+       "value": "http://192.168.100.102:30080",
+       "type": "string"
+      },
+      {
+       "id": "a2",
+       "name": "template",
+       "value": "ping-lab",
+       "type": "string"
+      }
+     ]
+    },
+    "options": {}
+   },
+   "name": "Settings",
+   "type": "n8n-nodes-base.set",
+   "typeVersion": 3.4,
+   "position": [
+    220,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "url": "={{ $json.awx + '/api/v2/job_templates/' }}",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpBearerAuth",
+    "sendQuery": true,
+    "queryParameters": {
+     "parameters": [
+      {
+       "name": "name",
+       "value": "={{ $json.template }}"
+      }
+     ]
+    },
+    "options": {}
+   },
+   "name": "Find template",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    440,
+    0
+   ],
+   "credentials": {
+    "httpBearerAuth": {
+     "id": "",
+     "name": "AWX token"
+    }
+   }
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $('Settings').first().json.awx + '/api/v2/job_templates/' + $json.results[0].id + '/launch/' }}",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpBearerAuth",
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "{}",
+    "options": {}
+   },
+   "name": "Launch",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    660,
+    0
+   ],
+   "credentials": {
+    "httpBearerAuth": {
+     "id": "",
+     "name": "AWX token"
+    }
+   }
+  },
+  {
+   "parameters": {
+    "amount": 10
+   },
+   "name": "Wait 10s",
+   "type": "n8n-nodes-base.wait",
+   "typeVersion": 1.1,
+   "position": [
+    880,
+    0
+   ],
+   "webhookId": "ep11-wait"
+  },
+  {
+   "parameters": {
+    "url": "={{ $('Settings').first().json.awx + '/api/v2/jobs/' + $('Launch').first().json.job + '/' }}",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpBearerAuth",
+    "options": {}
+   },
+   "name": "Job status",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1100,
+    0
+   ],
+   "credentials": {
+    "httpBearerAuth": {
+     "id": "",
+     "name": "AWX token"
+    }
+   }
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose"
+     },
+     "conditions": [
+      {
+       "id": "c1",
+       "leftValue": "={{ ['pending','waiting','running'].includes($json.status) }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "options": {}
+   },
+   "name": "Still running?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    1320,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "assignments": {
+     "assignments": [
+      {
+       "id": "r1",
+       "name": "job",
+       "value": "={{ $json.id }}",
+       "type": "number"
+      },
+      {
+       "id": "r2",
+       "name": "status",
+       "value": "={{ $json.status }}",
+       "type": "string"
+      },
+      {
+       "id": "r3",
+       "name": "elapsed_s",
+       "value": "={{ $json.elapsed }}",
+       "type": "number"
+      }
+     ]
+    },
+    "options": {}
+   },
+   "name": "Result",
+   "type": "n8n-nodes-base.set",
+   "typeVersion": 3.4,
+   "position": [
+    1540,
+    100
+   ]
+  }
+ ],
+ "connections": {
+  "Run": {
+   "main": [
+    [
+     {
+      "node": "Settings",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Settings": {
+   "main": [
+    [
+     {
+      "node": "Find template",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Find template": {
+   "main": [
+    [
+     {
+      "node": "Launch",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Launch": {
+   "main": [
+    [
+     {
+      "node": "Wait 10s",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Wait 10s": {
+   "main": [
+    [
+     {
+      "node": "Job status",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Job status": {
+   "main": [
+    [
+     {
+      "node": "Still running?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Still running?": {
+   "main": [
+    [
+     {
+      "node": "Wait 10s",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Result",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {}
+}

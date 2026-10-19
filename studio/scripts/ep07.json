@@ -1,0 +1,123 @@
+{
+ "schema": "awx-script/1",
+ "episode": 7,
+ "slug": "ep07-custom-execution-environments",
+ "title": "Custom Execution Environments",
+ "target_minutes": "15-18 raw (two long downloads time-lapsed), about 10 after cuts",
+ "preflight": [
+  "Lab VMs running: AWX node (192.168.100.102) and node2 (192.168.100.103). Open http://192.168.100.102:30080 and log in as admin",
+  "Episode 3-6 objects exist: Homelab org, lab-ssh, series-repo, Lab inventory",
+  "Switch the every-5-min schedule OFF (Schedules list, toggle) so it does not interrupt the recording",
+  "ep07 folder is on GitHub main (execution-environment.yml, check-ee.yml). Clone or pull the repo on the AWX node: cd ~ && git clone https://github.com/Venuvgp19/Youtube-Tutorials-Awx.git (or git -C ~/Youtube-Tutorials-Awx pull)",
+  "On the AWX node: podman and ansible-builder must NOT be installed yet (you install them on camera). The VM needs internet; the base image is about 1.5 GB",
+  "Delete leftovers from a test: EE 'awx-ee-mysql', template check-ee, image localhost/awx-ee-mysql (podman rmi; k3s ctr images rm docker.io/... or localhost/...)",
+  "Free disk on the AWX node: at least 8 GB (df -h /)",
+  "Browser at 100 percent zoom, dark theme, one clean tab, bookmarks bar hidden. Terminal font large enough to read"
+ ],
+ "steps": [
+  {
+   "id": "open",
+   "title": "Open",
+   "chapter": "Intro",
+   "show": "AWX dashboard, logged in as admin.",
+   "cmd": [],
+   "say": "Every job in AWX runs inside a container called an execution environment. The default one has Ansible and the common collections, but sooner or later your playbook needs something it does not have: a collection, a Python library, a system tool. Today we build our own execution environment with ansible builder, load it into the cluster, and run a playbook that only works with it."
+  },
+  {
+   "id": "ee",
+   "title": "What an EE is",
+   "chapter": "Recap",
+   "show": "AWX: Administration > Execution Environments. Open AWX EE (latest): show the image quay.io/ansible/awx-ee:latest and the pull option. Back to the list.",
+   "cmd": [],
+   "say": "Here they are. AWX EE latest is an image on quay dot io. When a job starts, AWX pulls this image, starts a pod from it, and runs ansible playbook inside. That is great for repeatability: same image, same result, on any node. But it also means: if the library is not in the image, it is not there."
+  },
+  {
+   "id": "fail",
+   "title": "Prove the gap",
+   "chapter": "Problem",
+   "show": "AWX: sync series-repo first (Projects > sync icon). Then Templates > Add job template: name check-ee, Run, inventory Lab, project series-repo, EE AWX EE (latest), playbook ep07/check-ee.yml. Save, Launch. Point at the red task: ModuleNotFoundError: No module named 'pymysql'.",
+   "cmd": [],
+   "say": "Let me prove it. Sync the project, then a template called check e e with the playbook ep zero seven slash check e e dot yml. It does what a database playbook would do: import the Python library pymysql, and list the community dot mysql collection. Launch. Red. No module named pymysql. The default image simply does not have it.",
+   "watch": "Execution environment field: pick AWX EE (latest) explicitly so the failure is clear."
+  },
+  {
+   "id": "def",
+   "title": "The definition file",
+   "chapter": "Definition",
+   "show": "Browser: GitHub > ep07 > execution-environment.yml. Point at base_image awx-ee:24.6.1, galaxy collections community.mysql, python PyMySQL, system git.",
+   "cmd": [],
+   "say": "The fix is a small file, execution environment dot yml. Version three of the ansible builder format. Base image: the AWX EE we already use, pinned to twenty four point six point one. Then three kinds of dependencies: galaxy collections, here community dot mysql. Python packages, here PyMySQL. And system packages, here git. That is the whole recipe."
+  },
+  {
+   "id": "install",
+   "title": "Install the tools",
+   "chapter": "Install",
+   "show": "Terminal (PuTTY) on the AWX node as root. Run the commands. Press Speed at the start and end of the dnf and pip downloads.",
+   "cmd": [
+    "dnf install -y podman python3-pip",
+    "pip3 install ansible-builder",
+    "ansible-builder --version"
+   ],
+   "say": "On the AWX node we need two tools. Podman, to build container images, and ansible builder, which turns our file into a container build. Dnf install podman, then pip install ansible builder. I speed up the downloads. Ansible builder dash dash version, and we are ready.",
+   "watch": "If pip complains about an externally managed environment, use: pip3 install --break-system-packages ansible-builder"
+  },
+  {
+   "id": "build",
+   "title": "Build the image",
+   "chapter": "Build",
+   "show": "Terminal on the AWX node. cd into the repo ep07 folder and run the build. Press Speed at the start of the long image pull and build, and again when it prints 'Complete!'. Then podman images.",
+   "cmd": [
+    "cd ~/Youtube-Tutorials-Awx && git pull && cd ep07",
+    "ansible-builder build -t localhost/awx-ee-mysql:1.0 -v 1",
+    "podman images"
+   ],
+   "say": "Into the ep zero seven folder, and ansible builder build. Dash t gives the image a name, localhost slash awx dash ee dash mysql, tag one point zero. It pulls the base image, installs the collection and the Python library, and writes a new image. This takes a few minutes, so I speed it up. Complete. Podman images shows our new image next to the base.",
+   "watch": "Build needs internet and about 8 GB free. If it fails on the base pull, run podman pull quay.io/ansible/awx-ee:24.6.1 first."
+  },
+  {
+   "id": "load",
+   "title": "Load it into k3s",
+   "chapter": "Load",
+   "show": "Terminal on the AWX node. Save the image into the k3s image store and list it.",
+   "cmd": [
+    "podman save localhost/awx-ee-mysql:1.0 | k3s ctr images import -",
+    "k3s ctr images ls | grep awx-ee-mysql"
+   ],
+   "say": "Now, AWX does not run on podman. It runs on k3s, which has its own image store. Normally you push the image to a registry like quay dot io and every node pulls it from there. On a single node lab there is a shortcut: podman save the image, and pipe it straight into k3s with ctr images import. Grep confirms k3s now has awx dash ee dash mysql.",
+   "watch": "With more than one node, or for a real setup: podman login quay.io (pause), podman push, and use the quay image name in AWX instead."
+  },
+  {
+   "id": "addee",
+   "title": "Add the EE in AWX",
+   "chapter": "Register",
+   "show": "AWX: Administration > Execution Environments > Add. Name awx-ee-mysql. Image localhost/awx-ee-mysql:1.0. Pull: 'Only pull the image if not present before running'. Organization Homelab. Save.",
+   "cmd": [],
+   "say": "Back in AWX. Execution Environments, Add. The name is awx e e mysql, the image is localhost slash awx dash ee dash mysql colon one point zero. And the pull option matters: only pull the image if not present. The image is already on the node, and there is no registry to pull it from. Save.",
+   "watch": "Pull option must be 'missing' (only if not present). 'Always' fails because localhost/... is not in any registry."
+  },
+  {
+   "id": "rerun",
+   "title": "Run it again",
+   "chapter": "Run",
+   "show": "AWX: Templates > check-ee > Edit. Execution environment awx-ee-mysql. Save, Launch. Point at the pymysql version line and the community.mysql collection line. Then the Details tab: Execution Environment awx-ee-mysql.",
+   "cmd": [],
+   "say": "Same template, I only change the execution environment to awx e e mysql. Launch. Green. pymysql prints its version, and the collection list shows community dot mysql. The Details tab shows which image ran the job. Nothing changed in the playbook, only the container it runs in."
+  },
+  {
+   "id": "why",
+   "title": "When to build your own",
+   "chapter": "Tips",
+   "show": "AWX: Execution Environments list. Hover the three EEs.",
+   "cmd": [],
+   "say": "When should you build one? When a playbook needs a collection or a Python library that the default image lacks, or when you want every job pinned to known versions. Keep the definition file in Git next to your playbooks, bump the tag when you change it, like one point one, and set the EE on the project or the organization so every template picks it up."
+  },
+  {
+   "id": "close",
+   "title": "Wrap up",
+   "chapter": "Wrap up",
+   "show": "AWX: Templates > check-ee with the green last run.",
+   "cmd": [],
+   "say": "Quick recap. Jobs run inside an execution environment image. Ansible builder turns a short definition file into a new image. On one node you can import it straight into k3s, on many nodes you push it to a registry. Then add it in AWX and pick it on the template. Next episode: surveys and roles, so a teammate can run jobs safely without touching anything else. The files are in the ep zero seven folder of my GitHub repo. If this helped, subscribe, and I will see you in the next one."
+  }
+ ]
+}

@@ -1,0 +1,119 @@
+{
+ "schema": "awx-script/1",
+ "episode": 11,
+ "slug": "ep11-awx-as-code-and-api",
+ "title": "AWX as code + the REST API from n8n",
+ "target_minutes": "14-16 raw, about 10 after cuts",
+ "preflight": [
+  "Lab VMs running: AWX node (192.168.100.102) and node2 (192.168.100.103). Open http://192.168.100.102:30080 and log in as admin",
+  "Episode 3-6 objects exist: Homelab org, lab-ssh, series-repo, Lab inventory, template ping-lab",
+  "Switch the every-5-min schedule OFF (Schedules list, toggle) so it does not interrupt the recording",
+  "On the AWX node: ansible-core installed (from ep05; ansible --version). The awx.awx collection must NOT be installed yet (ansible-galaxy collection list awx.awx shows nothing). Repo pulled: git -C ~/Youtube-Tutorials-Awx pull",
+  "Delete leftovers from a test: project awx-as-code, inventory lab-as-code, template 'ping (as code)', the admin token used in a test (Users > admin > Tokens)",
+  "n8n: workflow 'Launch AWX job (ep11)' imported; an n8n credential of type Bearer Auth named 'AWX token' will be created on camera (paste token while paused)",
+  "jq installed on the AWX node (dnf install -y jq) for api.sh",
+  "Browser at 100 percent zoom, dark theme, one clean tab, bookmarks bar hidden. Terminal font large enough to read",
+  "Passwords and tokens never on screen: press P (pause) before typing or pasting one, resume after (the AWX token)"
+ ],
+ "steps": [
+  {
+   "id": "open",
+   "title": "Open",
+   "chapter": "Intro",
+   "show": "AWX dashboard, logged in as admin.",
+   "cmd": [],
+   "say": "Everything we built in this series, we built by clicking. That is fine to learn, but clicks cannot be reviewed, repeated or rebuilt after a disaster. Today we manage AWX itself as code with the awx dot awx collection, and then we call AWX from the outside through its REST API, from n8n."
+  },
+  {
+   "id": "api",
+   "title": "AWX is an API",
+   "chapter": "API",
+   "show": "Browser: open http://192.168.100.102:30080/api/v2/ (logged in). Click job_templates, show the JSON list with ping-lab. Back.",
+   "cmd": [],
+   "say": "First a secret: the AWX web interface is just a client of the REST API. Open slash api slash v2 in the browser and you get a browsable API. Job templates: here is ping lab, as JSON, with its id. Anything you click in the UI, a script can do here."
+  },
+  {
+   "id": "token",
+   "title": "Create a token",
+   "chapter": "Token",
+   "show": "AWX: click admin (top right) > User details > Tokens tab > Add. Description automation, Scope Write. Save. PAUSE with P before the token is shown, copy it, resume after closing the dialog.",
+   "cmd": [],
+   "say": "Scripts should not use your password. They use a token. On my user, tokens, add. Description automation, scope write. Save. AWX shows the token exactly once, so I copy it now, off camera. If it leaks, I delete it here and nothing else changes."
+  },
+  {
+   "id": "coll",
+   "title": "Install the collection",
+   "chapter": "Collection",
+   "show": "Terminal (PuTTY) on the AWX node. Run the commands. For the read -s line PAUSE with P, paste the token, press Enter, resume.",
+   "cmd": [
+    "ansible-galaxy collection install awx.awx:24.6.1",
+    "export CONTROLLER_HOST=http://192.168.100.102:30080",
+    "read -s CONTROLLER_OAUTH_TOKEN && export CONTROLLER_OAUTH_TOKEN"
+   ],
+   "say": "On the AWX node, ansible galaxy collection install awx dot awx, pinned to the same version as our AWX, twenty four point six point one. Then two environment variables: controller host, the AWX address, and controller oauth token. Read dash s reads the token without echoing it, so it never shows on screen.",
+   "watch": "Never echo or cat the token. If the install is slow, press Speed."
+  },
+  {
+   "id": "file",
+   "title": "The config file",
+   "chapter": "As code",
+   "show": "Browser: GitHub > ep11 > awx-config.yml. Scroll: project awx-as-code, inventory lab-as-code, host 192.168.100.103, job template 'ping (as code)' with credential lab-ssh.",
+   "cmd": [],
+   "say": "Here is AWX as code. A normal playbook that runs on localhost. Each task describes one AWX object and how it should look: a project pointing at our GitHub repo, an inventory, a host in it, and a job template using the ping playbook and the lab ssh credential. It says what should exist, not which buttons to click."
+  },
+  {
+   "id": "apply",
+   "title": "Apply it",
+   "chapter": "Apply",
+   "show": "Terminal on the AWX node: run the playbook. Show changed=4. Then AWX UI: Projects (awx-as-code), Inventories (lab-as-code with the host), Templates ('ping (as code)'). Launch 'ping (as code)' and show it is green.",
+   "cmd": [
+    "cd ~/Youtube-Tutorials-Awx && ansible-playbook ep11/awx-config.yml"
+   ],
+   "say": "Run it. Changed equals four: four objects created. In the UI: the project awx as code, the inventory with its host, and the template. Launch the template, and it works like anything I built by hand."
+  },
+  {
+   "id": "again",
+   "title": "Run it again",
+   "chapter": "Idempotent",
+   "show": "Terminal: run the same playbook again. Show changed=0. Then in AWX edit the template description by hand, run the playbook once more: changed=1, the description is back.",
+   "cmd": [
+    "ansible-playbook ep11/awx-config.yml"
+   ],
+   "say": "Run it again. Changed equals zero. Nothing to do, because AWX already matches the file. Now I change the template description by hand in the UI, as someone might do on a Friday evening. Run the playbook: changed one, and the description is back to what Git says. Git is the source of truth."
+  },
+  {
+   "id": "curl",
+   "title": "Launch with curl",
+   "chapter": "REST API",
+   "show": "Terminal on the AWX node: run api.sh. Show the template id, the launched job id and the status loop ending in successful.",
+   "cmd": [
+    "./ep11/api.sh ping-lab"
+   ],
+   "say": "Now the API directly. The script api dot sh does three calls with curl. Find the template by name, here ping lab, and get its id. Post to its launch endpoint, which returns a job id. Then ask for that job's status every five seconds until it is successful. Three HTTP calls, and you can launch AWX from anything."
+  },
+  {
+   "id": "n8n",
+   "title": "Launch from n8n",
+   "chapter": "n8n",
+   "show": "n8n (browser tab http://localhost:5678): open workflow 'Launch AWX job (ep11)'. Show the nodes: Settings (awx URL, template ping-lab), Find template, Launch, Wait 10s, Job status, Still running?, Result. Create the credential on the Find template node: Bearer Auth, name 'AWX token', paste the token (PAUSE). Select it on Launch and Job status too.",
+   "cmd": [],
+   "say": "The same three calls in n8n. A settings node with the AWX address and the template name. Find template, launch, wait ten seconds, check the job status, and loop until it is no longer running. The token goes into an n8n credential, so it is not visible in the workflow."
+  },
+  {
+   "id": "run",
+   "title": "Run the n8n workflow",
+   "chapter": "Run",
+   "show": "n8n: click Execute workflow. Show each node turning green, the loop running once or twice, and Result with status successful. Switch to AWX Jobs: the ping-lab job, launched by admin via the API.",
+   "cmd": [],
+   "say": "Execute. Find template, launch, wait, still running, wait again, and the result: successful, with the elapsed time. In AWX the job is there, launched through the API. From here n8n can start AWX jobs from a form, a chat message, a monitoring alert, anything."
+  },
+  {
+   "id": "close",
+   "title": "Wrap up",
+   "chapter": "Wrap up",
+   "show": "AWX: Templates list showing ping-lab and 'ping (as code)'.",
+   "cmd": [],
+   "say": "Quick recap. AWX is an API with a web interface on top. Use tokens, not passwords, for automation. The awx dot awx collection describes AWX objects as code, and running it twice changes nothing. And any tool that can make an HTTP call, like curl or n8n, can launch jobs and wait for the result. Next episode, the last one: backup, restore, and troubleshooting when things go wrong. The files are in the ep eleven folder of my GitHub repo. If this helped, subscribe, and I will see you in the next one."
+  }
+ ]
+}

@@ -1,0 +1,15 @@
+---
+# Small job for schedules and webhooks: prints who started it and why.
+- name: Report how this job was started
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Can we log in?
+      ansible.builtin.ping:
+
+    - name: How was I launched?
+      ansible.builtin.debug:
+        msg: >-
+          Job {{ awx_job_id | default('?') }} launched by {{ awx_user_name | default('?') }}
+          via {{ awx_job_launch_type | default('?') }}
+          {{ ('(webhook event ' + awx_webhook_event_type + ')') if awx_webhook_event_type is defined else '' }}

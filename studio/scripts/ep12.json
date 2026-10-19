@@ -1,0 +1,121 @@
+{
+ "schema": "awx-script/1",
+ "episode": 12,
+ "slug": "ep12-backup-restore-troubleshooting",
+ "title": "Backup, restore and troubleshooting",
+ "target_minutes": "16-20 raw (restore waits time-lapsed), about 11 after cuts",
+ "preflight": [
+  "Lab VMs running: AWX node (192.168.100.102) and node2 (192.168.100.103). Open http://192.168.100.102:30080 and log in as admin",
+  "TAKE A VIRTUALBOX SNAPSHOT of the AWX node before recording (Machine > Take Snapshot, name before-ep12). The restore step deletes the running AWX instance",
+  "Rehearse the backup and restore once off camera on the snapshot, then restore the snapshot",
+  "Free disk on the AWX node: at least 5 GB (df -h /)",
+  "Switch the every-5-min schedule OFF (Schedules list, toggle) so it does not interrupt the recording",
+  "Repo pulled on the AWX node: git -C ~/Youtube-Tutorials-Awx pull (ep12/backup.yml, restore.yml, troubleshoot.sh)",
+  "Delete leftovers from a test: AWXBackup/AWXRestore objects (k3s kubectl -n awx delete awxbackup,awxrestore --all), host 192.168.100.199 and template ping-broken",
+  "Template show-vars from ep06 exists (it is the object you delete and get back)",
+  "Browser at 100 percent zoom, dark theme, one clean tab, bookmarks bar hidden. Terminal font large enough to read",
+  "Do not show the admin password; pause with P if you type it"
+ ],
+ "steps": [
+  {
+   "id": "open",
+   "title": "Open",
+   "chapter": "Intro",
+   "show": "AWX dashboard, logged in as admin.",
+   "cmd": [],
+   "say": "Last episode of the series. We have built a lot in AWX: projects, inventories, credentials, templates, workflows. Today we make sure none of it gets lost. We back up AWX with the operator, delete something on purpose, restore it, and then go through how to troubleshoot when a job or AWX itself breaks."
+  },
+  {
+   "id": "what",
+   "title": "What to back up",
+   "chapter": "Concepts",
+   "show": "Terminal (PuTTY) on the AWX node as root. Show the AWX objects and pods.",
+   "cmd": [
+    "k3s kubectl -n awx get awx,pods,pvc"
+   ],
+   "say": "What is AWX, from the cluster's point of view? An AWX resource managed by the operator, a few pods, and one thing that really matters: the Postgres database. Every template, credential and job lives there. Back up the database and the secret keys, and you can rebuild everything. The operator does that for us with an AWX backup resource."
+  },
+  {
+   "id": "backup",
+   "title": "Take a backup",
+   "chapter": "Backup",
+   "show": "Terminal on the AWX node. Show ep12/backup.yml with cat, apply it, watch it until Successful (Speed while waiting). Show the backup PVC.",
+   "cmd": [
+    "cd ~/Youtube-Tutorials-Awx && cat ep12/backup.yml",
+    "k3s kubectl apply -f ep12/backup.yml",
+    "k3s kubectl -n awx wait awxbackup/awx-backup-1 --for=condition=Successful --timeout=900s",
+    "k3s kubectl -n awx get pvc"
+   ],
+   "say": "The backup file is tiny: kind AWX backup, the deployment name awx, in the awx namespace. Apply it. The operator dumps the database and saves the secrets into a new volume. I speed up the wait. Successful, and there is the backup claim.",
+   "watch": "wait prints 'condition met' when the backup is done. If it times out, check: k3s kubectl -n awx logs deploy/awx-operator-controller-manager -c awx-manager --tail=40"
+  },
+  {
+   "id": "disaster",
+   "title": "Simulate a disaster",
+   "chapter": "Disaster",
+   "show": "AWX UI: Templates > show-vars > Delete (confirm). Show it is gone. Then terminal: delete the AWX instance and show the pods terminating (Speed).",
+   "cmd": [
+    "k3s kubectl -n awx delete awx awx",
+    "k3s kubectl -n awx get pods"
+   ],
+   "say": "Now the disaster. First a careless click: I delete the show vars template. Then something worse: I delete the whole AWX instance. The web interface stops answering. This is the moment you are glad you took a backup.",
+   "watch": "Only with the VirtualBox snapshot taken. Do not delete the namespace or the backup PVC."
+  },
+  {
+   "id": "restore",
+   "title": "Restore",
+   "chapter": "Restore",
+   "show": "Terminal: cat ep12/restore.yml, apply, watch the restore and the new pods (Speed, this takes several minutes). Wait until awx-web and awx-task are Running and the URL answers.",
+   "cmd": [
+    "cat ep12/restore.yml",
+    "k3s kubectl apply -f ep12/restore.yml",
+    "k3s kubectl -n awx wait awxrestore/awx-restore-1 --for=condition=Successful --timeout=1800s",
+    "k3s kubectl -n awx get pods"
+   ],
+   "say": "The restore file names the backup, awx backup one, and the deployment to create, awx. Apply. The operator creates a fresh AWX, loads the database from the backup, and puts the secret keys back, which is what lets it decrypt the credentials. This takes a few minutes, so I speed it up. Pods running, and the login page is back.",
+   "watch": "wait prints 'condition met' when the restore is done. If the UI shows 502 for a minute, wait; migrations are finishing."
+  },
+  {
+   "id": "check",
+   "title": "Everything is back",
+   "chapter": "Verify",
+   "show": "AWX UI: log in. Templates: show-vars is back. Credentials: lab-vault still says encrypted. Launch show-vars: green.",
+   "cmd": [],
+   "say": "Log in. The show vars template is back, because the backup was taken before I deleted it. The credentials are there and still encrypted, so the secret key came back too. Launch show vars: it runs. Full recovery from one small file."
+  },
+  {
+   "id": "joberr",
+   "title": "Read a failed job",
+   "chapter": "Troubleshoot jobs",
+   "show": "AWX: Lab inventory > Hosts > Add host 192.168.100.199. Templates > Add job template ping-broken (inventory Lab, playbook ep04/ping.yml, credential lab-ssh). Launch. Point at UNREACHABLE for 192.168.100.199 and ok for .103. Then delete the host.",
+   "cmd": [],
+   "say": "Now troubleshooting, starting with jobs, because that is ninety percent of your days. I add a host that does not exist and launch a ping. The output tells you everything: one host ok, one unreachable, connection timed out. Read the play recap first, then the first red task. The three classics: unreachable means network or IP; permission denied means the credential or the user; and could not find playbook means the project is not synced."
+  },
+  {
+   "id": "podlog",
+   "title": "When AWX itself breaks",
+   "chapter": "Troubleshoot AWX",
+   "show": "Terminal: run ep12/troubleshoot.sh and walk through the output sections.",
+   "cmd": [
+    "./ep12/troubleshoot.sh"
+   ],
+   "say": "And when AWX itself misbehaves, a slow UI, jobs stuck in pending, a login error, look at the cluster. This script runs the first look commands: are the pods running and the volumes bound, the operator log, the task log, where jobs are dispatched, the web log, the last cluster events, which show image pull errors and out of memory kills, and disk and memory. Most AWX problems on a home lab are a full disk or too little RAM."
+  },
+  {
+   "id": "habits",
+   "title": "Good habits",
+   "chapter": "Habits",
+   "show": "AWX dashboard.",
+   "cmd": [],
+   "say": "Three habits. Back up on a schedule, and copy the backup off the machine, a backup on the same disk is not a backup. Test a restore now and then, a backup you have never restored is a hope, not a plan. And keep AWX itself as code, like in episode eleven, so you can rebuild even without a backup."
+  },
+  {
+   "id": "close",
+   "title": "Series wrap up",
+   "chapter": "Wrap up",
+   "show": "AWX dashboard, then the GitHub repo main page with the episode table.",
+   "cmd": [],
+   "say": "That is the series. From installing AWX on k3s, through projects, inventories, credentials and vault, execution environments, surveys and roles, workflows, schedules and webhooks, AWX as code and the API, to backup and recovery. Everything is in my GitHub repo, one folder per episode. If this series helped you, subscribe, tell me in the comments what you want next, and I will see you in the next one."
+  }
+ ]
+}

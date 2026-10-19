@@ -1,18 +1,22 @@
 ---
-# Run from WorkerNode1 (or any machine that can reach AWX):
-#   export CONTROLLER_HOST=http://<AWX VM IP>:30080
-#   read -s CONTROLLER_OAUTH_TOKEN && export CONTROLLER_OAUTH_TOKEN
+# AWX as code with the awx.awx collection. Run on the AWX node (ansible-core from ep05):
 #   ansible-galaxy collection install awx.awx:24.6.1
-#   ansible-playbook ep11/awx-config.yml -e homelab_host=<target VM IP>
+#   export CONTROLLER_HOST=http://192.168.100.102:30080
+#   read -s CONTROLLER_OAUTH_TOKEN && export CONTROLLER_OAUTH_TOKEN     # token from Users > admin > Tokens
+#   ansible-playbook ep11/awx-config.yml
+# Run it twice: the second run changes nothing (idempotent).
 - name: Configure AWX as code
   hosts: localhost
   connection: local
   gather_facts: false
+  vars:
+    org: Homelab
+    node2: 192.168.100.103
   tasks:
     - name: Project from GitHub
       awx.awx.project:
-        name: Youtube-Tutorials-Awx
-        organization: Default
+        name: awx-as-code
+        organization: "{{ org }}"
         scm_type: git
         scm_url: https://github.com/Venuvgp19/Youtube-Tutorials-Awx.git
         scm_branch: main
@@ -21,20 +25,21 @@
 
     - name: Inventory
       awx.awx.inventory:
-        name: Homelab
-        organization: Default
+        name: lab-as-code
+        organization: "{{ org }}"
 
     - name: Host
       awx.awx.host:
-        name: "{{ homelab_host }}"
-        inventory: Homelab
+        name: "{{ node2 }}"
+        inventory: lab-as-code
 
     - name: Job template
       awx.awx.job_template:
-        name: Ping homelab (as code)
+        name: ping (as code)
         description: Created by ep11/awx-config.yml
-        project: Youtube-Tutorials-Awx
+        organization: "{{ org }}"
+        project: awx-as-code
         playbook: ep04/ping.yml
-        inventory: Homelab
+        inventory: lab-as-code
         credentials:
-          - homelab-ssh
+          - lab-ssh
