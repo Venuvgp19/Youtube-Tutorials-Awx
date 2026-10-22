@@ -247,6 +247,12 @@ def cmd_pro_events(pr, a):
         e = {"type": ty, "t0": round(t0, 2), "dur": float(c.get("dur", 5.0 if ty == "full" else 4.0))}
         if ty == "callout":
             e.update(text=c["text"], k=c.get("k", ""), mono=bool(c.get("mono")))
+        elif ty == "image":   # full-screen picture from the project folder, e.g. a code card: {"type":"image","image":"bonus.png","text":"BONUS","sub":"..."}
+            ip = pr.p(c["image"])
+            if not os.path.exists(ip):
+                miss.append("image " + c["image"]); continue
+            e.update(src="file:///" + os.path.abspath(ip).replace("\\", "/").lstrip("/"), text=c.get("text", ""), sub=c.get("sub", ""))
+            e["dur"] = float(c.get("dur", 7.0))
         else:
             e.update(text=c["text"], sub=c.get("sub", ""))
         ev.append(e)
