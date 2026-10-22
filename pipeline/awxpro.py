@@ -413,11 +413,18 @@ def cmd_pro_extras(pr, a):
     sub = th.get("sub", ep["title"])
     chips = th.get("chips", [s["chapter"] for s in T["steps"][1:-1][:4]])
     K = L.K
-    im = L.base(True)
+    im = L.base("thumb")
     dr = ImageDraw.Draw(im)
+
+    def fit(text, size, maxw):   # shrink the font until the line fits (long words like INVENTORIES)
+        while size > 60 and L.F(size, "Bold").getlength(text) / K > maxw:
+            size -= 6
+        return L.F(size, "Bold"), size
+    f1, s1 = fit(line1, 190, 1440)
+    f2, s2 = fit(line2, 280, 1440)
     dr.text((100 * K, 90 * K), f"AWX FROM ZERO  ·  EP {ep['number']}", font=L.F(40, "Bold"), fill=L.ACC)
-    dr.text((100 * K, 200 * K), line1, font=L.F(190, "Bold"), fill=L.WHITE)
-    dr.text((100 * K, 400 * K), line2, font=L.F(280, "Bold"), fill=L.ACC)
+    dr.text((100 * K, (200 + (190 - s1) * 0.5) * K), line1, font=f1, fill=L.WHITE)
+    dr.text((100 * K, (400 + (280 - s2) * 0.6) * K), line2, font=f2, fill=L.ACC)
     dr.text((100 * K, 715 * K), sub, font=L.F(60, "Bold"), fill=(255, 210, 138))
     x, y = 100, 850
     for i, n in enumerate(chips):

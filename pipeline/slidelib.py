@@ -37,7 +37,8 @@ def base(hexes=False):
     im = Image.fromarray(render.background()).convert("RGBA")
     if hexes:
         d = ImageDraw.Draw(im)
-        for (cx, cy, r, a) in [(1600, 260, 120, 40), (1745, 345, 70, 30), (1700, 820, 160, 22), (230, 900, 90, 26)]:
+        hx = [(1600, 260, 120, 40), (1745, 345, 70, 30), (1700, 820, 160, 22)] + ([] if hexes == "thumb" else [(230, 900, 90, 26)])
+        for (cx, cy, r, a) in hx:
             pts = [((cx + r * math.cos(math.pi / 3 * i + math.pi / 6)) * K, (cy + r * math.sin(math.pi / 3 * i + math.pi / 6)) * K) for i in range(6)]
             d.polygon(pts, outline=ACC + (a + 40,), width=3 * K)
     return im
