@@ -63,9 +63,15 @@ def run(args, **kw):
 
 
 def _parallel(cmds):
-    n = max(2, os.cpu_count() or 2)
+    # Few parallel encodes, each with limited threads: many x264 encoders at once ran out of memory on a laptop
+    # ("malloc of size ... failed"). Failed segments are retried one at a time.
+    n = max(1, int(os.environ.get("AWX_JOBS", "3")))
+    cmds = [c[:-1] + ["-threads", os.environ.get("AWX_THREADS", "4")] + c[-1:] if "libx264" in c else c for c in cmds]
     with ThreadPoolExecutor(n) as ex:
         res = list(ex.map(lambda c: subprocess.run(c, capture_output=True, text=True), cmds))
+    for i, r in enumerate(res):
+        if r.returncode:
+            res[i] = subprocess.run(cmds[i], capture_output=True, text=True)
     bad = [r for r in res if r.returncode]
     if bad:
         raise RuntimeError("segment encode failed: " + bad[0].stderr[-800:])

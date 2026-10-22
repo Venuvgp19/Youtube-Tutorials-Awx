@@ -182,7 +182,7 @@ def main():
         print("wrote", out)
         if a.run:
             from concurrent.futures import ThreadPoolExecutor
-            with ThreadPoolExecutor(max(2, os.cpu_count() or 2)) as ex:
+            with ThreadPoolExecutor(max(1, int(os.environ.get("AWX_JOBS", "3")))) as ex:
                 res = list(ex.map(lambda cm: subprocess.run(cm), cmds[:-1]))
             if any(r.returncode for r in res):
                 sys.exit(1)
