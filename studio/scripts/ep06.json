@@ -107,12 +107,21 @@
    "watch": "In the filter field use the advanced search: key groups__name, value web. Fallback filter: name__startswith=web."
   },
   {
+   "id": "bonus",
+   "title": "Bonus: inventory from AWS",
+   "chapter": "Bonus: AWS",
+   "show": "Browser: GitHub > ep06 > aws_ec2-source-vars.yml (regions, filters tag:env lab, keyed_groups role, hostnames). Then AWX: lab-git > Sources > Add, open the Source dropdown and point at Amazon EC2 (and the Credential field it adds). Cancel, do not save.",
+   "cmd": [],
+   "say": "A quick bonus. The same idea works for clouds. In the ep zero six folder there is a file called aws e c two source vars. Paste it into an inventory source of type Amazon E C two, add an AWS credential, and AWX reads your instances straight from AWS. This file reads one region, keeps only running instances tagged env lab, and makes a group from each instance's role tag, so a server tagged role web lands in the group role underscore web. Start a server in AWS, sync, and it shows up. No host lists to maintain.",
+   "watch": "Do not save the EC2 source (no AWS credential in the lab). Cancel the form."
+  },
+  {
    "id": "close",
    "title": "Wrap up",
    "chapter": "Wrap up",
    "show": "AWX: Resources > Inventories list showing Lab, lab-git and web-only.",
    "cmd": [],
-   "say": "Quick recap. Groups let you target many hosts at once. Variables live on groups and hosts, and the most specific wins. Keep the inventory in Git and let an inventory source load it. And a smart inventory picks hosts by a filter. The same source idea works for clouds: the repo has bonus settings for AWS. Next episode we build our own execution environment. The files are in the ep zero six folder of my GitHub repo. If this helped, subscribe, and I will see you in the next one."
+   "say": "Quick recap. Groups let you target many hosts at once. Variables live on groups and hosts, and the most specific wins. Keep the inventory in Git and let an inventory source load it. And a smart inventory picks hosts by a filter. Next episode we build our own execution environment. The files are in the ep zero six folder of my GitHub repo. If this helped, subscribe, and I will see you in the next one."
   }
  ]
 }
