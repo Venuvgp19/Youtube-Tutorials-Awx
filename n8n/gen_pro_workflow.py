@@ -47,20 +47,18 @@ HOUSE PLAYBOOK (follow it):\n${PLAYBOOK}
 OUTPUT SHAPE: {"open":["..."],"steps":{"<step id>":["..."]},"close":["..."],"display":[["spoken","shown"]]}`;
 let user = `Episode ${$('Lab episode form').first().json['Episode number']}: ${$('Lab episode form').first().json['Episode title']}\nSteps (in order):\n` + JSON.stringify(steps, null, 1);
 if (prev) user += `\n\nYour previous answer failed validation. Fix these problems and return the full corrected JSON:\n- ` + prev.errors.join('\n- ');
-return [{json:{model: cfg.llmModel, messages:[{role:'system',content:sys},{role:'user',content:user}], errors: undefined}}];
+return [{json:{model: cfg.llmModel, messages:[{role:'system',content:sys},{role:'user',content:user}], prompt: sys + '\n\n' + user + '\n\nReply with the JSON object only. Do not create or edit any files.', effort: 'medium', errors: undefined}}];
 '''
 PROMPT_JS = PROMPT_JS.replace('__PLAYBOOK__', __import__('json').dumps(PLAYBOOK))
 add("Build prompt", "n8n-nodes-base.code", 2, {"jsCode": PROMPT_JS}, 1980, 0); link("Lab steps", "Build prompt")
-add("Spoken rewrite (NVIDIA LLM)", "n8n-nodes-base.httpRequest", 4.2, {"method": "POST", "url": "https://integrate.api.nvidia.com/v1/chat/completions", "authentication": "predefinedCredentialType", "nodeCredentialType": "openAiApi",
-    "sendBody": True, "contentType": "raw", "rawContentType": "application/json", "body": "={{ JSON.stringify({model: $json.model, messages: $json.messages, temperature: 0.2, top_p: 0.9, max_tokens: 32000}) }}", "options": {"timeout": 300000}},
-    2200, 0, creds={"openAiApi": {"id": "", "name": "OpenAI account"}})
-link("Build prompt", "Spoken rewrite (NVIDIA LLM)")
+add("Spoken rewrite (Gemini AI assistant)", "n8n-nodes-base.executeWorkflow", 1.2, {"workflowId": {"__rl": True, "value": "AgyWf8k2Lm9Pq4Vx", "mode": "id"}, "options": {"waitForSubWorkflow": True}}, 2200, 0)
+link("Build prompt", "Spoken rewrite (Gemini AI assistant)")
 
 VALIDATE_JS = r'''
 const cfg = $('Config').first().json;
 const form = $('Lab episode form').first().json;
 const lab = $('Lab steps').first().json;
-const raw = ($json.choices?.[0]?.message?.content || '').trim();
+const raw = String($json.antigravity_response ?? $json.response ?? $json.choices?.[0]?.message?.content ?? '').replace(/```(?:json)?/g, '').trim();
 const errors = [];
 let data = null;
 try { const m = raw.match(/\{[\s\S]*\}/); data = JSON.parse(m ? m[0] : raw); } catch (e) { errors.push('Output is not valid JSON: ' + e.message); }
@@ -102,7 +100,7 @@ const profile = (form['Voice profile (Voicebox)'] || 'Venu Short').trim();
 const project = {voicebox:{url:'http://127.0.0.1:17493', profile, model_size:'0.6B', engine:'qwen', language:'en', seeds:[42,7,1234,99], threshold:0.9, timeout_s:240}, music:'music.mp3', max_minutes:15};
 return [{json:{ok:true, attempt, files:{'narration.json':{segments:segs}, 'scenes.json':{episode, gaps:{sentence:0.32}, display:data.display || []}, 'project.json':project}}}];
 '''
-add("Validate narration", "n8n-nodes-base.code", 2, {"jsCode": VALIDATE_JS}, 2420, 0); link("Spoken rewrite (NVIDIA LLM)", "Validate narration")
+add("Validate narration", "n8n-nodes-base.code", 2, {"jsCode": VALIDATE_JS}, 2420, 0); link("Spoken rewrite (Gemini AI assistant)", "Validate narration")
 add("Narration valid?", "n8n-nodes-base.if", 2.2, {"conditions": {"options": {"caseSensitive": True, "leftValue": "", "typeValidation": "loose"}, "conditions": [{"id": "c1", "leftValue": "={{ $json.ok }}", "rightValue": "", "operator": {"type": "boolean", "operation": "true", "singleValue": True}}], "combinator": "and"}, "options": {}}, 2640, 0)
 link("Validate narration", "Narration valid?")
 IF("Retries left?", "={{ $json.attempt }}", "3", 2640, 200); nodes[-1]["parameters"]["conditions"]["conditions"][0]["operator"] = {"type": "number", "operation": "lt"}
